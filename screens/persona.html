@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Choose persona | FCT Finance Control Tower</title>
+<script src="../assets/js/load.js"></script>
+<style>
+  body{min-height:100vh}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:16px 40px;background:var(--brand);color:#fff}
+  .top .m{font-family:var(--serif);font-size:24px;font-weight:600}
+  .top .m small{font-family:var(--sans);font-size:13px;font-weight:400;color:var(--rail-dim);margin-left:10px}
+  .top button{background:none;border:1px solid #2E6461;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer}
+  .wrap{max-width:1120px;margin:0 auto;padding:44px 40px}
+  h1{font-family:var(--serif);font-size:34px;font-weight:500}
+  .lead{font-family:var(--serif);font-size:18px;color:var(--ink-2);margin:6px 0 30px}
+  .personas{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+  .main-p{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:28px;display:flex;flex-direction:column}
+  .main-p:hover{border-color:var(--brand-2)}
+  .main-p h2{font-family:var(--serif);font-size:26px}
+  .main-p .q{font-family:var(--serif);font-style:italic;font-size:17px;color:var(--ink-2);margin:6px 0 18px}
+  .jobs{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:13.5px;margin-bottom:22px}
+  .jobs div{padding:6px 0;border-bottom:1px solid var(--line)}
+  .main-p .who{display:flex;gap:12px;align-items:center;margin-top:auto;padding-top:16px;border-top:1px solid var(--line)}
+  .others{display:flex;flex-direction:column;gap:10px}
+  .op{background:var(--sunk);border:1px dashed var(--line-strong);border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .op b{font-weight:600;font-size:14px}
+  .op div div{font-size:12.5px;color:var(--ink-3);font-style:italic}
+  .chips{margin:0 0 6px}
+  @media (max-width:860px){.personas{grid-template-columns:1fr}.jobs{grid-template-columns:1fr}.wrap{padding:28px 16px}}
+</style>
+</head>
+<body data-root="../">
+<header class="top"><div class="m">FCT<small>Finance Control Tower</small></div><button id="out" type="button">Sign out</button></header>
+<main class="wrap">
+  <h1>Choose how you want to work today</h1>
+  <div class="lead">Each persona sees the same data, ranked by the decisions that role is accountable for.</div>
+  <div class="personas">
+    <article class="main-p">
+      <div class="split"><h2>Financial controller</h2><span class="pill pos">Available</span></div>
+      <div class="q">Are the numbers right, complete and supported, and will we close on time?</div>
+      <div class="chips"><span class="chip">Procure to pay</span><span class="chip">Order to cash</span><span class="chip">Record to report</span><span class="chip">Supply chain</span><span class="chip">Compliance</span></div>
+      <div class="jobs" style="margin-top:14px">
+        <div>Start the day knowing what needs me</div><div>Decide an exception quickly and defensibly</div>
+        <div>Run the close without chasing people</div><div>Know every balance is complete and supported</div>
+        <div>Explain the numbers</div><div>Be audit-ready any day</div>
+        <div>Govern what the AI may decide</div><div>Fix causes so exceptions stop recurring</div>
+      </div>
+      <div class="who"><span class="avatar">PR</span><div style="flex:1"><b>Priya Raman</b><div class="faint" style="font-size:12.5px">Group Financial Controller, 10 entities, Sep-26 close</div></div>
+        <button class="btn primary" id="go" type="button">Continue as financial controller</button></div>
+    </article>
+    <div class="others">
+      <div class="op"><div><b>Chief financial officer</b><div>Is the business performing and is risk under control?</div></div><span class="pill low">Next release</span></div>
+      <div class="op"><div><b>Accounts payable lead</b><div>Is every invoice paid right and on time?</div></div><span class="pill low">Next release</span></div>
+      <div class="op"><div><b>Credit and collections lead</b><div>Which customers need action today?</div></div><span class="pill low">Next release</span></div>
+      <div class="op"><div><b>Compliance lead</b><div>Which controls are failing and who fixes them?</div></div><span class="pill low">Next release</span></div>
+      <div class="op"><div><b>Entity controller</b><div>Will my entity close on time?</div></div><span class="pill low">Next release</span></div>
+    </div>
+  </div>
+</main>
+<script>
+  if(!FCT.state.auth) location.replace('login.html');
+  document.getElementById('out').addEventListener('click',FCT.logout);
+  document.getElementById('go').addEventListener('click',function(){ FCT.state.persona='controller'; FCT.save(); location.href='home/desk.html'; });
+</script>
+</body>
+</html>

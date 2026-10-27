@@ -1,0 +1,9 @@
+/* FCT demo — R2R tower: rules on top of assets/css/p2p.css (shared tower styles). Case statuses that exist only in R2R. */
+.px-cst.s-proposed{background:var(--ai-bg);color:var(--ai)}
+.px-cst.s-booked{background:var(--crit-bg);color:var(--crit)}
+.px-cst.s-waived{background:var(--pos-bg);color:var(--pos)}
+/* entity marker shows an entity code instead of initials */
+.px-vmark .av{font-size:10px;letter-spacing:-.02em}
+/* close-progress heat on the Entity profiles portfolio */
+.rx-heat td.num{font-variant-numeric:tabular-nums;min-width:44px}
+.rx-heat td.na{color:var(--px-ink3)}

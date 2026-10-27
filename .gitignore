@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+fct details/
+video_resources/output/
+*.mp4
+*.webm
+
+# Supply chain learning notes and videos
+research/

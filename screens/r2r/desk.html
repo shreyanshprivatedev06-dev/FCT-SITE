@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R2R scorecard | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/r2r/load-r2r.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+</head>
+<body data-page="r2r/desk" data-root="../../">
+<div id="app"><p style="padding:24px">Loading the R2R scorecard…</p></div>
+<script>
+/* R2R control tower: the KPI sheet is the screen; any card, slice, bar or row opens that KPI's detail screen in place, under a global breadcrumb.
+   KPI › group › entity › Entity Profile › record or case; every ancestor restores its view; filters persist through the drill. Deep link: desk.html#kpi=recs */
+(function(){
+  const { html } = R2R, P = R2R, M = R2RM, FCT = window.FCT, { useState, useEffect } = React;
+  function App(){
+    const [f, setF, pending] = P.useFilters('f');
+    const [nav, dispatch0] = P.useNav('health', Object.keys(M.KPI));
+    const dispatch = P.guard(dispatch0);
+    const [open, setOpen] = useState(()=> location.hash.length > 1 && location.hash!=='#sheet');
+    const toSheet = ()=>{ if(P.dirty && !confirm('Discard the unsaved investigation note?')) return; P.dirty = false; setOpen(false); };
+    const pick = (k, sel)=>{ if(P.dirty && !confirm('Discard the unsaved investigation note?')) return; P.dirty = false; dispatch0({ t:'kpi', kpi:k }); if(sel && sel.dim==='component') dispatch0({ t:'drill', node:P.rnode.group('component', sel.key) }); else if(sel) dispatch0({ t:'sel', v:sel }); setOpen(true); };
+    const openCase = (id)=>{ const c = M.case(id); if(c && c.ex && FCT.ex(c.ex)){ FCT.openDrawer(c.ex); return; } pick('adj'); dispatch0({ t:'drill', node:P.rnode.case(id) }); };
+    useEffect(()=>{ try{ history.replaceState(null, '', location.pathname + location.search + '#' + (open? M.nav.encode(nav) : 'sheet')); }catch(e){} }, [open, nav]);
+    return html`<div class=${'px-scr '+P.kc(open? nav.kpi : 'health')}><${P.ScreenTabs} on="desk" right=${html`<${P.RFilterBar} f=${f} setF=${setF} pending=${pending}/>`}/>
+      <${P.GlobalCrumb} root=${{ kind:'Overview', label:'KPI sheet', icon:'Gauge', go:toSheet }} nav=${nav} dispatch=${dispatch} show=${open}/>
+      ${open? html`<${P.RInvestigate} nav=${nav} dispatch=${dispatch} f=${f} setF=${setF}/>`
+        : html`<div class="px-ws1"><${P.KpiBoard} f=${f} kpi=${null} pick=${pick} openCase=${openCase}/></div>`}</div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+/* if the screen has not rendered after 8 s, say why instead of showing "Loading" forever */
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.R2RM? 'The R2R data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compliance health | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../assets/js/cmp/cmp-preview.js"></script>
+</head>
+<body class="px-full" data-page="cmp/executive" data-root="../../">
+<script>try{ if((localStorage.getItem("fct-p2p-theme")||"dark")==="light") document.body.classList.add("theme-light"); }catch(e){}</script>
+<div id="app"><p style="padding:24px">Loading Compliance health…</p></div>
+<script>
+/* DESIGN PREVIEW of Compliance step 1 (Compliance health), built with the P2P components and p2p.css unchanged.
+   Numbers are fixed demo values taken from FCT-work/cmp-data.json; the live engine comes in the data/build step. */
+(function(){
+  const P = P2P, html = P.html, Icon = P.Icon, R = P.R, COL = P.COL, FCT = window.FCT, { useState, useEffect } = React;
+  const cx = (...a)=> a.filter(Boolean).join(' ');
+  const n1 = (v)=> FCT.n(v,1), n2 = (v)=> FCT.n(v,2), pc = (v,d=1)=> FCT.pct(v,d);
+
+  /* ---------- demo values (cmp-data.json) ---------- */
+  const D = {
+    ready:85.47, target:90, after2:90.47, after:92.47, prior:85, days:7, review:'12-Oct-2026',
+    trend:[['Apr',79],['May',80],['Jun',81],['Jul',83],['Aug',85],['Today',85.5]],
+    areas:[ {id:'ctl', n:'Controls passing', score:96.12, pts:19.22, s:'396 of 412 controls passed their latest test', step:'Controls'},
+            {id:'evd', n:'Evidence on file', score:99.23, pts:19.85, s:'5,439 of 5,481 auditor samples on file', step:'Evidence pack'},
+            {id:'fnd', n:'Findings', score:70.00, pts:14.00, s:'8 open findings, 4 of them overdue', step:'Findings'},
+            {id:'sod', n:'Access conflicts', score:70.00, pts:14.00, s:'3 conflicts open, 1 of them used', step:'Investigations'},
+            {id:'rem', n:'Fixes on time', score:92.00, pts:18.40, s:'138 of 150 fix actions on time, Q2 FY27 (Jul–Sep)', step:'Findings'} ],
+    /* proof: the transaction review or retest that earns the points (no points for an access change alone) */
+    path:[ {proof:'Internal Audit reviews the vendor creation and the ₹18.7 L payment to V-310992 Sai Enterprises, and the access change is logged.', a:'Remove the used access conflict at IN-03 (vendor create + payment approve)', p:'P2P', q:'High', pts:4.00, why:'Used to pay ₹18.7 L to a vendor the same user created.', x:'CMP-SOD-01'},
+           {proof:'Jul–Sep GRNI reviews filed with sign-off, and the GRNI review control retested on the September sample.', a:'Close repeat finding F-2026-031 with system evidence', p:'Group', q:'High', pts:1.00, why:'Repeat finding, 41 days overdue; the auditor asks about it first.', x:'CMP-REM-06'},
+           {a:'Log the call-back for the Apex Chem bank-detail change', p:'P2P', q:'High', pts:0.004, why:'CTL-P2P-009 is sampled on 12-Oct; one missing log fails the sample.', x:'CMP-EVD-05'},
+           {proof:'Access logs confirm neither right was used since it was granted; retested at the Q3 user-access review.', a:'Remove the 2 unused access conflicts (IN-05, US-01)', p:'R2R O2C', q:'Medium', pts:2.00, why:'Never used, so each costs 1 point; a used one costs 4.'} ],
+    controls:{ total:412, failing:16, p2p:10, key:14, auto:251 },
+    reg:[ ['CTL-P2P-001','DoA approval before PO release',96.40,'pass'],['CTL-P2P-013','Three-way match before payment',97.81,'pass'],['CTL-CMP-003','SoD: vendor create vs payment approve',99.32,'fail'],
+          ['CTL-P2P-014','Tolerance override approved',99.07,'fail'],['CTL-P2P-010','Duplicate invoice blocked',99.98,'fail'],['CTL-P2P-024','Duplicate vendor prevented',97.97,'fail'],
+          ['CTL-P2P-022','PO raised before invoice',97.04,'fail'],['CTL-P2P-017','Contract price within ±2%',94.83,'fail'],['CTL-P2P-020','No PO, no pay',93.20,'fail'],
+          ['CTL-P2P-021','Vendor master data verified',93.02,'fail'],['CTL-P2P-031','MSME paid within 45 days',88.23,'fail'],['CTL-P2P-015','GR within 48 h of gate entry',81.54,'fail'],['CTL-P2P-009','Bank change call-back',0,'fail'] ],
+    heat:[['IN-01',96.93],['IN-02',94.14],['IN-03',95.29],['IN-04',95.22],['IN-05',94.78],['IN-06',96.83],['IN-07',97.00],['IN-08',95.60],['US-01',96.55],['EU-01',96.07]],
+    evidence:{ on:5439, req:5481, att:114, attReq:120, packs:1, packsN:4 },
+    findings:{ open:8, overdue:4, repeat:5, oldest:41 }, sod:{ open:3, used:1 }, policy:93.77, anm:{ flagged:47, high:11 }, sanc:{ screened:150, hits:0 },
+    cases:[ ['PTP-BNK-05',85,'critical','IN-02','Vendor bank-detail change before payment run','₹1.12 Cr'],['RTR-JNL-02',81,'critical','IN-05','Manual journal of ₹2.40 Cr to revenue at period end','₹2.40 Cr'],
+            ['SC-CNT-04',80,'critical','IN-05','Cycle-count shortage; catalysts short by 14%','₹1.86 Cr'],['SC-ADJ-12',72,'critical','IN-08','Write-offs split under the approval limit','₹1.10 Cr'],['PTP-DUP-03',69,'critical','IN-04','Probable duplicate invoice','₹48.6 L'],
+            ['CMP-ANM-07',66,'high','IN-05','Vendor bank account matches an employee salary account','₹6.2 L'],['CMP-SOD-01',62,'high','IN-03','SoD conflict used: vendor create and payment approve','₹18.7 L'],['RTR-PER-10',58,'high','IN-08','Posting to a closed period','₹42 L'],
+            ['CMP-EVD-05',50,'high','IN-02','Call-back evidence missing for the Apex bank change','1 item'] ]
+  };
+  /* priority, severity, entity and amount come from the case record itself (the drawer shows the same), highest priority first */
+  const CASES = D.cases.map(c=>{ const x = FCT.ex(c[0]); return x? [c[0], x.priority, x.severity, x.entity, c[4], x.impact && x.impact.short || c[5]] : c; }).sort((a,b)=> b[1]-a[1]);
+  const nSev = (s)=> CASES.filter(c=> c[2]===s).length;
+  const tone = (s)=> s>=95? 'var(--px-pos)' : s>=80? '#B08A1E' : 'var(--px-crit)';
+  const Pill = ({ tone, children })=> html`<span class=${'px-pill t-'+(tone||'n')}>${children}</span>`;
+  const Ring = ({ v })=>{ const r = 34, c = 2*Math.PI*r, tv = P.useTween(v), col = v>=90? COL.pos : v>=75? '#B08A1E' : COL.crit;
+    return html`<svg viewBox="0 0 84 84" class="px-ring" role="img" aria-label=${'Compliance health '+n1(v)+' out of 100'}><circle cx="42" cy="42" r=${r} fill="none" stroke="var(--px-track)" stroke-width="7"/>
+      <circle cx="42" cy="42" r=${r} fill="none" stroke=${col} stroke-width="8" stroke-linecap="round" stroke-dasharray=${c} stroke-dashoffset=${c*(1-tv/100)} transform="rotate(-90 42 42)"/>
+      <text x="42" y="44" text-anchor="middle" class="n">${n1(tv)}</text><text x="42" y="58" text-anchor="middle" class="u">/100</text></svg>`; };
+  const Spark = ({ data, w=220, ht=30, target })=>{ const vs = data.concat(target!=null? [target] : []), mn = Math.min(...vs), mx = Math.max(...vs), pad = (mx-mn)*.15 || 1;
+    const X = (i)=> 1 + i*(w-3)/(data.length-1), Y = (v)=> ht-2 - (v-mn+pad)/(mx-mn+2*pad)*(ht-4);
+    return html`<svg class="px-spark" width=${w} height=${ht} viewBox=${'0 0 '+w+' '+ht} preserveAspectRatio="none" aria-hidden="true">
+      ${target!=null && html`<line x1="0" x2=${w} y1=${Y(target)} y2=${Y(target)} stroke=${COL.brass} stroke-width="1" stroke-dasharray="3 3"/>`}
+      <path d=${data.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1)).join('')} fill="none" stroke=${COL.brand2} stroke-width="1.8"/>
+      <circle cx=${X(data.length-1)} cy=${Y(data[data.length-1])} r="2.6" fill=${COL.brass}/></svg>`; };
+  const Sec = ({ c, icon, title, sub, right, children })=> html`<section class=${'px-sec s-'+c} aria-label=${title}>
+    <div class="px-sec-h"><span class="px-sec-ic" aria-hidden="true"><${Icon} n=${icon} size=${20} strokeWidth=${1.7}/></span><div class="px-sec-t"><h2>${title}</h2>${sub && html`<p>${sub}</p>`}</div>${right && html`<div class="px-sec-r">${right}</div>`}</div>${children}</section>`;
+  const Foot = ({ items })=> html`<dl class="px-rc-f">${items.map(([l,v,t],i)=> html`<div key=${i}><dt>${l}</dt><dd class=${t||''}>${v}</dd></div>`)}</dl>`;
+  const AI = ({ children })=> html`<p class="px-ai"><i>${children}</i></p>`;
+  const RCard = ({ k, title, icon, basis, value, tone, chip, viz, note, foot, pick })=> html`<section class=${cx('px-kc px-rc px-rc3', k)} onClick=${pick} aria-label=${title}>
+    <div class="px-rc-h"><button type="button" class="px-kc-t" onClick=${(e)=>{ e.stopPropagation(); pick(); }}><span class="px-kc-i"><${Icon} n=${icon} size=${15} strokeWidth=${1.6}/></span><span>${title}</span></button><span class="px-basis">${basis}</span></div>
+    <div class="px-rc-v"><span class=${cx('v num', tone)}>${value}</span>${chip}</div><div class="px-rc-viz">${viz}</div><${AI}>${note}</${AI}><${Foot} items=${foot}/></section>`;
+
+  /* command bar: same markup and classes as P.ScreenTabs, with the Compliance tabs */
+  const Tabs = ({ right })=>{ useEffect(()=>{ document.body.classList.add('px-full'); return ()=> document.body.classList.remove('px-full'); }, []);
+    return html`<header class="px-cmd"><button type="button" class="px-railbtn" aria-label="Collapse or expand the tower navigation" onClick=${()=> FCT.railMin(!document.body.classList.contains('rail-min'))}><${Icon} n="Menu" size=${16}/></button>
+      <span class="px-brandmark"><b>CMP</b><small>Compliance</small></span>
+      <nav class="px-tabs" aria-label="Compliance screens"><a href="entities.html"><${Icon} n="Building2" size=${15}/><span>Entity profiles</span></a>
+        <a class="on" aria-current="page" href="executive.html"><span class="px-tab-bg"/><${Icon} n="ListChecks" size=${15}/><span>Compliance story</span></a></nav>
+      <div class="px-cmd-r">${right}<${P.ThemeToggle}/><${P.UserMenu}/></div></header>`; };
+  const Steps = ()=> html`<div class="px-steptabs" role="navigation" aria-label="Compliance story steps">
+    ${[['1','Compliance health'],['2','Controls'],['3','Investigations'],['4','Findings'],['5','Evidence pack']].map(([i,q])=> html`<button key=${i} type="button" class=${i==='1'? 'on' : ''} aria-current=${i==='1'? 'step' : undefined}
+      onClick=${()=> i!=='1' && (location.href = ['','executive','controls','investigation','issues','audit'][+i]+'.html')}>${q}</button>`)}</div>`;
+
+  /* ---------- board ---------- */
+  /* pass rate by control, per tower. P2P = live Sep-26 tests; O2C, R2R, Supply chain = baseline control tests (failing ones match the failing list),
+     to be re-validated when those towers merge. Compliance = CTL-CMP-003 live from P2P vendor data + baseline. */
+  const REGT = { 'P2P':{ src:'live, Sep-26 transactions', rows:D.reg.filter(r=> !r[0].startsWith('CTL-CMP')) },
+    'O2C':{ src:'baseline', rows:[['CTL-O2C-011','Credit-limit override approved',96.20,'fail'],['CTL-O2C-019','Cash applied within 2 days',98.80,'pass'],['CTL-O2C-014','Revenue cut-off review',99.10,'pass'],
+      ['CTL-O2C-008','Credit note references its invoice',99.40,'pass'],['CTL-O2C-005','E-invoice generated before posting',99.60,'pass'],['CTL-O2C-002','Customer master change approved',100,'pass']] },
+    'R2R':{ src:'baseline', rows:[['CTL-R2R-017','Intercompany confirmation sent',90.00,'fail'],['CTL-R2R-030','Suspense items cleared in 30 days',95.50,'fail'],['CTL-R2R-021','Journal support attached',97.40,'fail'],
+      ['CTL-R2R-040','Period-end cut-off review',99.50,'pass'],['CTL-R2R-002','Journal posted and approved by different users',99.90,'pass'],['CTL-R2R-011','Bank reconciliation signed monthly',100,'pass']] },
+    'Supply chain':{ src:'baseline', rows:[['CTL-SC-006','Inventory count variance within tolerance',96.90,'fail'],['CTL-SC-014','Batch expiry captured at receipt',98.60,'pass'],['CTL-SC-011','Write-off approved within DoA',99.20,'pass'],
+      ['CTL-SC-003','Quality inspection before GR',99.50,'pass'],['CTL-SC-019','Stock statement reconciled with banks',100,'pass']] },
+    'Compliance':{ src:'CTL-CMP-003 live from P2P vendor data, others baseline', rows:[['CTL-CMP-003','SoD: vendor create vs payment approve',99.32,'fail'],['CTL-CMP-007','Quarterly user-access review',99.60,'pass'],
+      ['CTL-CMP-012','Sanctions screening of new parties',100,'pass'],['CTL-CMP-018','Statutory filings made by the due date',95.29,'pass'],['CTL-CMP-015','Regulatory change assessed in 10 days',100,'pass']] } };
+  const CtlChart = ()=>{ const [tw, setTw] = React.useState('P2P'), T = REGT[tw], rows = T.rows, nf = rows.filter(r=> r[3]!=='pass').length, low = rows.find(r=> r[2] < 80);
+    return html`<section class="px-kc k-green" aria-label="Control pass rates by tower"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="ListChecks" size=${15}/></span><span>Pass rate by control, Sep-26</span></span>
+        <span onClick=${(e)=> e.stopPropagation()}><${P.Seg} label="Tower" value=${tw} onChange=${setTw} options=${Object.keys(REGT).map(k=> [k, k])}/></span></div>
+      <${P.ChartBox} height=${Math.max(200, rows.length*25+40)} label=${'Pass rate by '+tw+' control, September'} table=${P.mini(['Control','Pass %','Status'], rows.map(r=>[r[0]+' '+r[1], pc(r[2],2), r[3]==='pass'? 'Passing' : 'Failing']))}>
+        <${R.BarChart} key=${tw} layout="vertical" data=${rows.map(([id,n,v,st])=>({ id, n:id.replace('CTL-','')+' '+n, v:Math.max(v,80), real:v, st, lab:v<80? pc(v,0)+' · failed outright, below the axis' : pc(v,2) }))} margin=${{top:4,right:56,left:0,bottom:4}}>
+          <${R.CartesianGrid} horizontal=${false} stroke="var(--px-grid)"/>
+          <${R.XAxis} type="number" domain=${[80,100]} ticks=${[80,85,90,95,100]} tick=${{fill:'var(--px-ink3)', fontSize:11}} tickLine=${false} axisLine=${false} unit="%"/>
+          <${R.YAxis} type="category" dataKey="n" width=${260} tick=${{fill:'var(--px-ink2)', fontSize:11}} tickLine=${false} axisLine=${false} interval=${0}/>
+          <${R.Tooltip} content=${({active,payload})=> active && payload && payload[0]? html`<div class="px-ctip"><b>${payload[0].payload.n}</b><div>${pc(payload[0].payload.real,2)} passed · ${payload[0].payload.st==='pass'? 'Passing' : 'Failing'}</div></div>` : null}/>
+          <${R.Bar} dataKey="v" radius=${[0,3,3,0]} isAnimationActive=${false}>${React.createElement(R.LabelList, { key:'lab', dataKey:'lab', position:'right', fill:'var(--px-ink2)', fontSize:11 })}
+            ${rows.map((r,i)=> React.createElement(R.Cell, { key:i, fill: r[3]==='pass'? 'var(--px-pos)' : 'var(--px-crit)' }))}</${R.Bar}>
+        </${R.BarChart}></${P.ChartBox}>
+      <div class="px-seglg"><span><i style=${{background:'var(--px-pos)'}}/>Passing <b>${rows.length-nf}</b></span><span><i style=${{background:'var(--px-crit)'}}/>Failing <b>${nf}</b></span><span class="faint">Source: ${T.src}. Axis starts at 80% so small gaps show; any control below 80% is labelled, not drawn.${low? ' '+low[0]+' is '+pc(low[2],0)+' (the only bank change was made without a call-back).' : ''}${tw==='P2P'? '' : ' Key controls shown; full library on Controls.'}</span></div></section>`; };
+
+  /* the path to the target as a bridge: today's score, each decision adds its points, the bar crosses the dashed target */
+  const PathStrip = ()=>{ const steps = [D.path[0], D.path[1]], lo = Math.floor(D.ready)-2, hi = Math.ceil(D.after2)+2, at = (v)=> (v-lo)/(hi-lo)*100;
+    let run = D.ready; const segs = steps.map((p,i)=>{ const s = { from:run, to:run+p.pts, p, i }; run = s.to; return s; });
+    const ticks = []; for(let t = lo; t<=hi; t++) ticks.push(t);
+    const segCol = ['var(--px-pos)', 'color-mix(in srgb, var(--px-pos) 70%, #fff)'];
+    return html`<section class="px-kc k-teal" aria-label="Path to 90" style=${{marginTop:'16px'}}><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Target" size=${15}/></span><span>Path to ${D.target}: two decisions</span></span>
+        <${Pill} tone="g">${n1(D.ready)} → ${n1(D.after2)} · target met</${Pill}></div>
+      <p style=${{margin:'0 0 12px', fontWeight:600}}>Two decisions add ${n1(D.after2-D.ready)} points and take health from ${n1(D.ready)} to ${n1(D.after2)}, past the ${D.target} target.</p><p class="sub" style=${{margin:'-8px 0 12px'}}>Points count only when the review or retest behind each step is on file, not for the change alone.</p>
+      <div role="img" aria-label=${'Health '+n1(D.ready)+' today, '+n1(D.after2)+' after two decisions; target '+D.target} style=${{position:'relative', margin:'26px 8px 6px'}}>
+        <div style=${{position:'relative', height:'30px', borderRadius:'6px', background:'var(--px-track)'}}>
+          <i style=${{position:'absolute', left:0, width:at(D.ready)+'%', top:0, bottom:0, borderRadius:'6px 0 0 6px', background:'color-mix(in srgb, var(--px-ink3) 45%, transparent)'}}/>
+          ${segs.map(s=> html`<i key=${s.i} title=${'+'+n1(s.p.pts)+': '+s.p.a} style=${{position:'absolute', left:at(s.from)+'%', width:(at(s.to)-at(s.from))+'%', top:0, bottom:0, background:segCol[s.i], display:'flex', alignItems:'center', justifyContent:'center', color:'#0b1412', fontSize:'12px', fontWeight:700, fontStyle:'normal'}}>${'+'+n1(s.p.pts)}</i>`)}
+          <i style=${{position:'absolute', left:at(D.target)+'%', top:'-22px', bottom:'-6px', borderLeft:'2px dashed '+COL.brass}}/>
+          <span style=${{position:'absolute', left:at(D.target)+'%', top:'-24px', transform:'translateX(6px)', fontSize:'11px', color:COL.brass, fontWeight:600}}>Target ${D.target}</span>
+          <span style=${{position:'absolute', left:at(D.ready)+'%', top:'-24px', transform:'translateX(-50%)', fontSize:'11px', fontWeight:600}}>Today ${n1(D.ready)}</span></div>
+        <div style=${{position:'relative', height:'16px', marginTop:'4px'}}>${ticks.map(t=> html`<span key=${t} class="faint" style=${{position:'absolute', left:at(t)+'%', transform:'translateX(-50%)', fontSize:'10px'}}>${t}</span>`)}</div></div>
+      <div style=${{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:'10px', marginTop:'10px'}}>
+        ${segs.map(s=> html`<div key=${s.i} style=${{display:'grid', gridTemplateColumns:'28px 1fr', gap:'10px', padding:'10px', borderRadius:'8px', border:'1px solid var(--card-line, var(--px-line))', borderLeft:'4px solid '+segCol[s.i]}}>
+          <span style=${{width:'26px', height:'26px', borderRadius:'50%', background:segCol[s.i], color:'#0b1412', display:'grid', placeItems:'center', fontWeight:700}}>${s.i+1}</span>
+          <div><div style=${{display:'flex', gap:'8px', alignItems:'baseline', flexWrap:'wrap'}}><b class="num" style=${{color:'var(--px-pos)'}}>+${n1(s.p.pts)} pts</b><span class="faint">${n1(s.from)} → ${n1(s.to)} · ${s.p.p}</span></div>
+            <div style=${{margin:'4px 0 4px'}}>${s.p.a}</div><div class="sub" style=${{margin:'0 0 8px'}}><b>Evidence behind the points:</b> ${s.p.proof}</div><button type="button" class="btn sm cmp-decide" onClick=${(e)=>{ e.stopPropagation(); FCT.openDrawer(s.p.x); }}>Decide</button></div></div>`)}</div>
+      <${AI}>Also log the Apex Chem call-back before 12-Oct (CMP-EVD-05): almost no points, but one missing log fails the CTL-P2P-009 sample.</${AI}></section>`; };
+  const Board = ({ pick })=> html`<div class="px-board" aria-label="Compliance health sheet"><div class="px-board-in">
+      <${Steps}/>
+      <${Sec} c="kpi" icon="Gauge" title="How healthy is compliance?" sub=${'Five areas, 20 points each. As at 05-Oct-2026 09:10; auditor review starts '+D.review+'.'}
+        right=${html`<${Pill} tone="a">Health ${n1(D.ready)} · below the 90 target</${Pill}><${Pill} tone="r">${D.days} days to review</${Pill}>`}>
+        <div class="px-hero3">
+          <section class="px-kc px-feat2 k-teal" onClick=${()=> pick('ready')} aria-label="Compliance health">
+            <div class="px-rc-h"><button type="button" class="px-kc-t" onClick=${(e)=>{ e.stopPropagation(); pick('ready'); }}><span class="px-kc-i"><${Icon} n="Gauge" size=${15} strokeWidth=${1.6}/></span><span>Compliance health</span></button><span class="px-basis">As at 05-Oct</span></div>
+            <div class="px-feat2-b">
+              <div class="px-feat2-l"><div class="px-feat-b"><${Ring} v=${D.ready}/>
+                <div class="px-feat-s"><span title="Health is below the 90 target"><${Pill} tone="a">Below target</${Pill}></span><${Pill} tone="g">▲ ${n1(D.ready-D.prior)} pts vs Aug month-end</${Pill}>
+                  <div class="px-feat-k"><span>Target</span><b>${D.target}</b></div><div class="px-feat-k"><span>To go</span><b>${n2(D.target-D.ready)}</b></div></div></div>
+                <div class="px-feat-t"><span>Apr–today trend</span><${Spark} data=${D.trend.map(t=>t[1])} target=${D.target}/></div>
+                <${AI}>Health is ${n1(D.ready)} of 100, ${n1(D.target-D.ready)} points short of the target. Findings and access conflicts cost the most (6 points each). Two actions would take it to ${n1(D.after2)}.</${AI}></div>
+              <div class="px-feat2-c">${D.areas.map(a=> html`<button key=${a.id} type="button" class="px-cm2" onClick=${(e)=>{ e.stopPropagation(); pick('ready', a.id); }} title=${a.n+': '+pc(a.score)+', '+n2(a.pts)+' of 20 points'}>
+                <span class="hd"><span class="n">${a.n}</span><b class="v num">${pc(a.score)}</b></span>
+                <span class="trk"><i style=${{ width:a.score+'%', background:tone(a.score) }}/></span>
+                <span class="px-vt"><span class=${cx('tg', a.score<80? 'hi' : a.score<95? 'md' : 'lo')}><${Icon} n="Target" size=${12}/>${n2(20-a.pts)} pts lost</span><span class="faint">${a.step}</span></span>
+                <p class="px-ai sm"><i>${a.s}.</i></p></button>`)}</div></div></section>
+          <div class="px-hero3-g">
+            <${RCard} k="k-green" title="Failing controls" icon="ShieldCheck" basis="Latest test" value=${D.controls.failing} tone="crit" pick=${()=> pick('ctl')}
+              chip=${html`<${Pill} tone="r">${D.controls.p2p} from P2P</${Pill}>`}
+              viz=${html`<div class="px-segbar" role="img" aria-label="Controls passing and failing"><i style=${{flex:396, background:'var(--px-pos)'}} title="396 passing"/><i style=${{flex:64, background:'var(--px-crit)'}} title="16 failing (drawn 4× wider so it is visible)"/></div>
+                <div class="px-seglg"><span><i style=${{background:'var(--px-pos)'}}/>Passing <b>396</b></span><span><i style=${{background:'var(--px-crit)'}}/>Failing <b>16</b></span></div>`}
+              note=${'16 of 412 controls failed their latest test; 14 of them are key controls. 10 come from the P2P tests on September data.'}
+              foot=${[['Controls', FCT.n(D.controls.total)], ['Key failing', D.controls.key, 'r'], ['Automated', pc(D.controls.auto/D.controls.total*100,0)]]}/>
+            <${RCard} k="k-blue" title="Evidence on file" icon="FileText" basis="As at 05-Oct" value=${pc(D.evidence.on/D.evidence.req*100,2)} pick=${()=> pick('evd')}
+              chip=${html`<${Pill} tone="g">Target 99%</${Pill}>`}
+              viz=${html`<div class="px-bullet" role="img" aria-label="Evidence 99.23% against target 99%"><i style=${{ width:'92%', background:'var(--px-pos)' }}/><b style=${{ left:'90%' }} title="Target 99%"/></div>`}
+              note=${'5,439 of 5,481 samples the auditor will ask for are on file; 42 are missing. 1 of 4 evidence packs is ready.'}
+              foot=${[['Missing', '42', 'a'], ['Attestations', D.evidence.att+' / '+D.evidence.attReq], ['Packs ready', D.evidence.packs+' of '+D.evidence.packsN, 'a']]}/>
+            <${RCard} k="k-violet" title="Open findings" icon="FileWarning" basis="As at 05-Oct" value=${D.findings.open} pick=${()=> pick('fnd')}
+              chip=${html`<${Pill} tone="r">${D.findings.overdue} of ${D.findings.open} overdue</${Pill}>`}
+              viz=${html`<div class="px-segbar" role="img" aria-label="Open findings by status"><i style=${{flex:4, background:'var(--px-crit)'}}/><i style=${{flex:4, background:'var(--px-medium)'}}/></div>
+                <div class="px-seglg"><span><i style=${{background:'var(--px-crit)'}}/>Overdue <b>4</b></span><span><i style=${{background:'var(--px-medium)'}}/>In progress <b>4</b></span></div>`}
+              note=${'8 findings are open and 5 of them are repeats. The oldest, F-2026-031, is 41 days overdue.'}
+              foot=${[['Repeat', D.findings.repeat, 'r'], ['Oldest', D.findings.oldest+'d', 'r'], ['On time Q2', '92%']]}/>
+            <${RCard} k="k-amber" title="Access conflicts" icon="Lock" basis="As at 05-Oct" value=${D.sod.open} tone="crit" pick=${()=> pick('sod')}
+              chip=${html`<${Pill} tone="r">${D.sod.used} of ${D.sod.open} used</${Pill}>`}
+              viz=${html`<div class="px-segbar" role="img" aria-label="Access conflicts, used and not used"><i style=${{flex:1, background:'var(--px-crit)'}}/><i style=${{flex:2, background:'var(--px-medium)'}}/></div>
+                <div class="px-seglg"><span><i style=${{background:'var(--px-crit)'}}/>Used <b>1</b></span><span><i style=${{background:'var(--px-medium)'}}/>Not used <b>2</b></span></div>`}
+              note=${'A user at IN-03 can create vendors and approve payments, and used it to pay ₹18.7 L to a vendor they created. Conflicts cost 6 health points.'}
+              foot=${[['Used', D.sod.used, 'r'], ['Not used', D.sod.open-D.sod.used], ['Points lost', '6.0', 'r']]}/>
+          </div></div>
+        <${PathStrip}/></${Sec}>
+
+      <${Sec} c="ctl" icon="ShieldCheck" title="Controls across all towers" sub="Pass rate per control (left) and by tower and entity (right). P2P is live; other towers are baseline."
+        right=${html`<${Pill} tone="r">16 of 412 failing, 5 towers</${Pill}>`}><div class="px-brow">
+        <${CtlChart}/>
+        <section class="px-kc k-green" aria-label="P2P pass rate by entity"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Building2" size=${15}/></span><span>Control pass rate by tower and entity</span></span></div><${CMPV.TowerHeat} onEnt=${(e)=> location.href = 'entities.html#'+e}/></section></div></${Sec}>
+      <${Sec} c="exc" icon="Crosshair" title="Cases to decide" sub=${CASES.length+' open cases, highest priority first. Amounts are per case, never added. Priority weighs impact, urgency, audit effect, control risk and reversibility.'}
+        right=${html`<${Pill} tone="r">${CASES.length} cases</${Pill}>${['critical','high','medium'].map(s=> nSev(s)? html`<${Pill} key=${s} tone=${s==='critical'? 'r' : 'a'}>${nSev(s)} ${s}</${Pill}>` : null)}`}>
+        <section class="px-kc px-exc" aria-label="Open cases"><div class="px-tbl"><table class="t px-t dense"><caption class="sr">Open cases</caption>
+          <thead><tr><th>Priority</th><th>Case</th><th>Entity</th><th class="r">Impact</th><th>Severity</th><th><span class="sr">Action</span></th></tr></thead>
+          <tbody>${CASES.map(([id,pr,sev,e,t,imp])=> html`<tr key=${id} tabIndex="0" class="sel" onClick=${()=> FCT.openDrawer(id)} onKeyDown=${(ev)=>{ if(ev.key==='Enter') FCT.openDrawer(id); }}>
+            <td><span class=${'px-prio p-'+(pr>=70? 'high' : pr>=45? 'medium' : 'low')}>${pr}</span></td><td>${P.vt(t)}<div class="sub">${id}</div></td><td>${e}</td><td class="r num">${imp}</td>
+            <td><span class=${'px-risk r-'+sev.charAt(0).toUpperCase()+sev.slice(1)}>${sev}</span></td><td class="r">${window.CMPV && CMPV.towerBtn? CMPV.towerBtn(id, e) : null}<button type="button" class="btn sm cmp-decide" onClick=${(ev)=>{ ev.stopPropagation(); FCT.openDrawer(id); }}>Decide</button></td></tr>`)}</tbody></table></div></section></${Sec}>
+    </div></div>`;
+
+  /* ---------- KPI detail: Compliance health ---------- */
+  /* one health area in place: its own maths, the actions that win points back, and the breakdown behind it */
+  const AREA = { ctl:{ kpi:'Failing controls', page:'controls', f:'396 of 412 controls pass, so 19.22 of 20 points.', act:'No action on the path: each failing control fixed adds about 0.05 points.' },
+    evd:{ kpi:'Evidence on file', page:'audit', f:'5,439 of 5,481 auditor samples are on file, so 19.85 of 20 points.', act:'Log the Apex call-back (+0.004); each of the 42 missing items is worth 0.004.' },
+    fnd:{ kpi:'Open findings', page:'issues', f:'4 overdue findings cost 1 point each and 4 not yet due cost 0.5 each, so 14.00 of 20 points.', act:'Close repeat finding F-2026-031 with system evidence (+1.0).' },
+    sod:{ kpi:'Access conflicts', page:'investigation', f:'1 conflict used in transactions costs 4 points and 2 unused cost 1 each, so 14.00 of 20 points.', act:'Remove the used conflict at IN-03 (+4.0) and the 2 unused ones (+2.0).' },
+    rem:{ kpi:'Fixes on time', page:'issues', f:'138 of 150 actions due in Q2 FY27 were on time, so 18.40 of 20 points.', act:'No action on the path: the 12 late actions belong to the 4 overdue findings.' } };
+  const AreaView = ({ a })=>{ const m = AREA[a.id], def = CMPV.DEF[m.kpi], rows = def.by.rows(), go = (r)=> location.href = m.page+'.html#kpi='+encodeURIComponent(m.kpi)+(r && r.key? '&row='+encodeURIComponent(r.key) : '');
+    return html`<div class="px-ws1"><div class="px-board"><div class="px-board-in">
+      <section class="px-sec s-kpi"><div class="px-sec-h"><span class="px-sec-ic"><${Icon} n="Target" size=${20}/></span><div class="px-sec-t"><h2>${a.n}: ${pc(a.score)}</h2><p>${n2(a.pts)} of 20 points, ${n2(20-a.pts)} lost. Explained on ${a.step}.</p></div>
+        <div class="px-sec-r"><button type="button" class="btn sm" onClick=${go}>Open ${a.step} ↗</button></div></div>
+      <div class="px-brow">
+        <section class="px-kc k-teal"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Info" size=${15}/></span><span>How this area is scored</span></span></div>
+          <p style=${{margin:'0 0 10px'}}>${m.f}</p><div class="px-tbl"><table class="t px-t dense"><tbody>${def.inputs.map(([l,v])=> html`<tr key=${l}><td>${l}</td><td class="r num">${v}</td></tr>`)}</tbody></table></div>
+          <${AI}>${m.act}</${AI}></section>
+        <section class="px-kc k-teal"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Layers" size=${15}/></span><span>${def.by.title}</span></span></div>
+          <${P.BarList} label=${def.by.title} rows=${rows} fmt=${def.by.fmt} limit=${12} onSelect=${go} onOpen=${go}/>
+          <${AI}>Click a row to continue on ${a.step}, where every row drills to its records.</${AI}></section>
+      </div></section></div></div></div>`; };
+  const Detail = ({ area, setArea })=>{
+    const a = D.areas.find(x=> x.id===area);
+    if(a) return html`<${AreaView} a=${a}/>`;
+    const rows = D.areas.map(x=> ({ key:x.id, label:x.n, val:+(20-x.pts).toFixed(2), sub:pc(x.score)+' · '+n2(x.pts)+' of 20 points' })).sort((p,q)=> q.val-p.val);
+    const tdata = D.trend.map(([m,v])=>({m,v})); tdata[tdata.length-1].a = tdata[tdata.length-1].v; tdata.push({ m:'After', a:D.after });
+    return html`<div class="px-ws1"><div class="px-board"><div class="px-board-in">
+      <section class="px-sec s-kpi"><div class="px-sec-h"><span class="px-sec-ic"><${Icon} n="Gauge" size=${20}/></span><div class="px-sec-t"><h2>Compliance health</h2><p>How healthy is compliance across controls, evidence, findings, access and fixes? Average of five areas, 20 points each. As at 05-Oct-2026 09:10.</p></div>
+        <div class="px-sec-r"><${Pill} tone="a">${n1(D.ready)} · Watch</${Pill}><${Pill}>Target ${D.target}</${Pill}><${Pill} tone="g">${n1(D.after)} after the actions</${Pill}></div></div>
+      <div class="px-brow">
+        <section class="px-kc k-teal" aria-label="Health trend"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="TrendingUp" size=${15}/></span><span>Health by month end, today and after the actions</span></span></div>
+          <${P.ChartBox} height=${220} label="Compliance health trend against the 90 target" table=${P.mini(['Month','Health'], D.trend.concat([['After actions',D.after]]).map(t=>[t[0], n1(t[1])]))}>
+            <${R.LineChart} data=${tdata} margin=${{top:10,right:16,left:0,bottom:4}}>
+              <${R.CartesianGrid} vertical=${false} stroke="var(--px-grid)"/><${R.XAxis} dataKey="m" tick=${{fill:'var(--px-ink3)', fontSize:11}} tickLine=${false} axisLine=${false}/>
+              <${R.YAxis} domain=${[70,100]} tick=${{fill:'var(--px-ink3)', fontSize:11}} tickLine=${false} axisLine=${false} width=${36}/>
+              <${R.Tooltip} content=${React.createElement(P.Tip, { fmt:(v)=> n1(v)+' of 100' })}/>
+              <${R.ReferenceLine} y=${D.target} stroke=${COL.brass} strokeDasharray="4 4" label=${{ value:'Target 90', fill:COL.brass, fontSize:11, position:'insideTopLeft' }}/>
+              <${R.Line} type="linear" dataKey="v" name="Compliance health score" stroke=${COL.brand2} isAnimationActive=${false} strokeWidth=${2.2} dot=${{r:3}} connectNulls=${false}/>
+              <${R.Line} type="linear" dataKey="a" name="Projected after actions" stroke=${COL.pos} isAnimationActive=${false} strokeDasharray="5 4" strokeWidth=${2} dot=${{r:3}} connectNulls=${true}/></${R.LineChart}></${P.ChartBox}>
+          <div class="px-seglg"><span><i style=${{background:'var(--kc)'}}/>Health</span><span><i style=${{background:'var(--px-pos)'}}/>After the actions</span><span><i style=${{background:COL.brass}}/>Target 90</span></div></section>
+        <section class="px-kc k-teal" aria-label="Points lost by area"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Target" size=${15}/></span><span>Points lost by area (14.53 lost in all)</span></span></div>
+          <${P.BarList} label="Points lost by area" rows=${rows} fmt=${(v)=> n2(v)+' pts'} max=${8} sel=${area} onSelect=${(r)=> setArea(r.key===area? null : r.key)} onOpen=${(r)=> setArea(r.key)}/>
+          ${a? html`<${AI}>${a.n}: ${pc(a.score)}, worth ${n2(a.pts)} of 20 points. ${a.s}. Explained on ${a.step}.</${AI}>` : html`<${AI}>Click an area to see why it lost points.</${AI}>`}</section>
+      </div>
+      <section class="px-kc px-exc" aria-label="Path to 90"><div class="px-kc-h"><span class="px-kc-t static"><span class="px-kc-i"><${Icon} n="Target" size=${15}/></span><span>Path to ${D.target}: open actions, highest priority first</span></span></div>
+        <div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Priority</th><th>Action</th><th>Process</th><th class="r">Health gain</th><th><span class="sr">Open</span></th></tr></thead>
+        <tbody>${D.path.map(p=> html`<tr key=${p.a} class="sel" tabIndex="0" onClick=${()=> p.x && FCT.openDrawer(p.x)}><td><span class=${'px-prio p-'+p.q.toLowerCase()}>${p.q}</span></td><td>${p.a}<div class="sub">${p.why}${p.proof? ' Evidence: '+p.proof : ''}</div></td><td>${p.p}</td>
+          <td class="r num">${p.pts<0.1? html`<span title=${'+'+FCT.n(p.pts,3)+' pts'}>Protects the 12-Oct sample</span>` : '+'+n1(p.pts)+' pts'}</td><td class="r">${p.x? html`<button type="button" class="btn sm cmp-decide" onClick=${(e)=>{ e.stopPropagation(); FCT.openDrawer(p.x); }}>Decide</button>` : ''}</td></tr>`)}</tbody></table></div>
+        <${Foot} items=${[['Today', n1(D.ready)], ['After first two', n1(D.after2), 'g'], ['After all four', n1(D.after), 'g']]}/></section>
+      </section></div></div></div>`;
+  };
+
+  function App(){
+    const [f, setF, pending] = P.useFilters('f');
+    const [open, setOpen] = useState(()=> location.hash.startsWith('#kpi='));
+    const [area, setArea] = useState(null);
+    const GO = { ctl:'controls.html#kpi=Failing controls', evd:'audit.html#kpi=Evidence on file', fnd:'issues.html#kpi=Open findings', sod:'investigation.html#kpi=Access conflicts' };
+    const pick = (k, sel)=>{ if(GO[k] && !sel){ location.href = GO[k]; return; } setOpen(true); setArea(sel || null); };
+    useEffect(()=>{ try{ history.replaceState(null, '', location.pathname + (open? '#kpi=ready' : '#sheet')); }catch(e){} }, [open]);
+    const a = D.areas.find(x=> x.id===area);
+    const nav = { kpi:'health', path:[{ t:'root', label:'Compliance health' }].concat(a? [{ t:'group', dim:'area', label:'Area: '+a.n }] : []) };
+    const dispatch = (act)=>{ if(act.t==='crumb' && act.i===0) setArea(null); };
+    return html`<div class="px-scr k-teal"><${Tabs} right=${html`<${P.FilterBar} f=${f} setF=${setF} pending=${pending} compact=${true} search=${window.CMPV && CMPV.caseSearch}/>`}/>
+      <${P.GlobalCrumb} root=${{ kind:'Compliance', label:'KPI sheet', icon:'Layers', go:()=>{ setOpen(false); setArea(null); } }} nav=${nav} dispatch=${dispatch} show=${open}/>
+      ${open? html`<${Detail} area=${area} setArea=${setArea}/>` : html`<div class="px-ws1"><${Board} pick=${pick}/></div>`}</div>`;
+  }
+  (window.P2PM.dimName||{}).area = 'Health area';
+  P.mount(App);
+})();
+</script>
+</body>
+</html>

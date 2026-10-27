@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Material profiles | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/sc/load-sc.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+<!-- MapLibre GL 5.6.0 (BSD-3) draws the full-width map stage; the base map style comes from CARTO -->
+<link rel="stylesheet" href="../../assets/vendor/maplibre/maplibre-gl.css">
+<script src="../../assets/vendor/maplibre/maplibre-gl.js"></script>
+<script src="../../assets/js/map/map-card.js"></script>
+<script src="../../assets/js/portfolio/portfolio.js"></script>
+</head>
+<body data-page="sc/materials" data-root="../../">
+<div id="app"><p style="padding:24px">Loading material profiles…</p></div>
+<script>
+/* Material profiles: the material-plant portfolio (risk mix, stock against risk, ABC × XYZ, supplier dependence, master data,
+   where materials break the chain) and the full Material Profile for any material at a plant.
+   Breadcrumb: Material portfolio › group › Material › document or case. Supplier is a dimension here, not a screen. */
+(function(){
+  const { html, h, R, COL, Icon, cx } = SC, P = SC, M = SCM, C = M.C, FCT = window.FCT;
+  const { useState, useEffect, useRef, Fragment } = React;
+  const { cr, amt, pct } = P, N = P.node;
+  const profile = (id)=> ({ t:'profile', id, label:M.matLabel(id) });
+  const openExp = (f)=>{ const ex = {}; M.cases(f).forEach(c=>{ if(M.statusMeasure(c.stNow)==='potential' && c.est) ex[c.v] = (ex[c.v]||0) + c.est; }); return ex; };
+
+  /* stock against risk; bubble = open material exposure */
+  /* the page body is the shared portfolio (assets/js/portfolio/portfolio.js); this adapter tells it about SC material-plants */
+  const THEMES = [
+    { id:'plan', name:'Forecast and planning', codes:['fcOver','fcUnder','short','mdGap'], why:'Forecast off, cover short or the plan built on stale data' },
+    { id:'stock', name:'Excess, slow and expiring stock', codes:['excess','slow','nearExp'], why:'Stock above policy, ageing or close to expiry' },
+    { id:'sup', name:'Supply and procurement', codes:['late','price'], why:'Delivered late or short, or priced off contract' },
+    { id:'rcv', name:'Receipts and transit', codes:['grLate','noGr','git'], why:'Received late, not receipted, or owned in transit and not booked' },
+    { id:'prd', name:'Production and counts', codes:['yield','cnt'], why:'Abnormal yield loss or counts outside tolerance' },
+    { id:'val', name:'Shipping and valuation', codes:['cutoff','tpl','nrv'], why:'Cut-off, 3PL differences or stock above net realisable value' },
+    { id:'md', name:'Material master data', md:true, why:'Standard cost, reorder, shelf-life or valuation data missing' } ];
+  const CASE_THEME = { forecast:'plan', override:'plan', mrp:'plan', ss:'plan', shortage:'plan', excess:'stock', expiry:'stock', slow:'stock',
+    supplier:'sup', price:'sup', advance:'sup', nopo:'sup', coa:'sup', git:'rcv', gr:'rcv', rtv:'rcv', grqty:'rcv', asn:'rcv', batch:'rcv',
+    count:'prd', adjust:'prd', cntcov:'prd', jobwork:'prd', yield:'prd', cost:'prd', stmt:'prd', negstk:'val', tpl:'val', consign:'val', cutoff:'val', nrv:'val', urp:'val', fx:'val' };
+  const recVal = (x)=> x.amt!=null? x.amt : x.rem!=null? x.rem : x.val||0;
+  const normCase = (c)=> ({ id:c.id, type:c.type, typeName:M.ETYPE[c.type].name, amount:c.est!=null? c.est : (c.affected||0), measure:M.statusMeasure(c.stNow), stName:M.statusName(c.stNow), age:Math.max(0, Math.floor(M.SNAP - c.opened)), ex:c.ex });
+  const T = {
+    mapStage:true, noun:'material', nounPl:'materials', idLabel:'Material', profileLabel:'Material profile', segLabel:'Value class', caseIdEg:'CS-SUP-02', processHref:'screens/sc/process.html',
+    valName:'Stock', valShort:'stock', valWhen:()=> 'at '+C.bookDate, secName:'Excess stock', secShort:'Excess',
+    riskCats:C.risk.cats.map(c=> c.id), riskDefs:C.risk.defs, regions:M.GEO_REGIONS, segs:M.MAP_SEGS, themes:THEMES, caseTheme:CASE_THEME,
+    recs:(fs)=> M.materialsIn(fs), byId:(id)=> M.V[id], fkey:M.fkey, shortId:(v)=> v.mat,
+    val:(fs)=>{ const o = {}; M.materialsIn(fs).forEach(v=> o[v.id] = M.stock(v.id)); return o; },
+    sec:(fs)=>{ const o = {}; M.materialsIn(fs).forEach(v=>{ if(v.excess) o[v.id] = v.excess; }); return o; },
+    exposure:(fs)=>{ const o = {}; M.cases(fs).forEach(c=>{ if(M.statusMeasure(c.stNow)==='potential' && c.est) o[c.v] = (o[c.v]||0) + c.est; }); return o; },
+    risk:(id)=>{ const r = M.risk(id); return { cat:r.approved, score:r.score, why:r.esc || M.V[id].driver || (r.factors.filter(x=> x.v!=null).sort((a,b)=> b.v-a.v)[0]||{}).why || '' }; },
+    seg:(id)=> M.abc(id), sub:(v)=> M.plantName(v.plant)+(v.geo? ', '+v.geo.city : '')+' · '+M.cls(v.id)+' · '+M.CAT[v.cat].name,
+    tags:(id)=>{ const v = M.V[id]; return [v.sole && ['Sole source','a'], v.cover!=null && v.minD && v.cover<v.minD && ['Below minimum cover','r']].filter(Boolean); },
+    stages:(fs, ids)=>{ const S = M.chainScope(fs); return C.stages.map(s=> ({ id:s.id, name:s.name, q:s.q, n:S[s.id].n, val:S[s.id].val, nv:Object.keys(S[s.id].vendors).filter(v=> ids.has(v)).length })); },
+    issueRecs:(fs)=>{ const S = M.chainScope(fs), out = []; C.stages.forEach(st=> Object.values(S[st.id].issues).forEach(r=> r.recs.forEach(({ x })=> out.push({ code:r.code, name:M.issue(r.code).name, ent:x.v, id:x.id, val:recVal(x) })))); return out; },
+    mdFails:(fs)=> M.facts('mdq', fs).filter(x=> x.ok===false).map(x=> ({ ent:x.v, name:x.g.check })),
+    issueName:(c)=> M.issue(c).name, recLabel:(id)=>{ try{ return N.doc(id).label; }catch(e){ return id; } },
+    cases:(id, fs)=> (M.vendor(id, fs).cases||[]).map(normCase),
+    caseInfo:(id)=>{ const c = M.case(id); return c && { typeName:M.ETYPE[c.type].name, rec:c.v, recName:M.matLabel(c.v) }; },
+    caseView:(id, h2)=> html`<${P.CaseView} key=${id} id=${id} onDoc=${h2.onDoc} onMaterial=${h2.onRec} onCase=${h2.onCase}/>`,
+    tower:'sc', towerName:'SC',
+    issueKind:(c)=> M.issue(c).kind, issueStage:(c)=> (M.stage(M.issue(c).stage)||{}).name, factors:(id)=> M.risk(id).factors, caseLines:(id)=> (M.case(id)||{}).lines||[],
+    trend:(id, fs)=>{ const b = M.material(id, fs).byM||[]; return { name:'Consumption by month', fmt:(x)=> P.cr(x,2), tick:(x)=> '₹'+FCT.n(x,1), data:C.months.map((m,i)=> ({ m:m.slice(0,3), v:+(b[i]||0).toFixed(2) })) }; },
+    docView:(id, h2)=> html`<${P.DocView} key=${id} id=${id} onMaterial=${h2.onRec} onCase=${h2.onCase} act=${h2.act} theme=${h2.theme}/>`,
+    heat:(fs)=> M.heat(fs, 12), getScope:(fs)=> fs, setScope:(fs, o)=> Object.assign({}, fs, o) };
+  const PF = FCTPortfolio.make(P, T);
+
+  function MaterialGroup({ f, nav, dispatch }){
+    const top = M.nav.top(nav), all = M.materialsIn(f);
+    const vs = top.dim==='risk'? all.filter(v=> M.risk(v.id).approved===top.key) : top.dim==='check'? all.filter(v=> (v.md||{})[C.mdChecks.find(c=>c[1]===top.key)[0]]===false)
+      : top.dim==='cls'? all.filter(v=> M.abc(v.id)+M.xyz(v.id)===top.key) : top.dim==='supId'? all.filter(v=> v.sup===top.key)
+      : top.dim==='city'? all.filter(v=> v.geo && v.geo.region+'|'+v.geo.city===top.key) : top.dim==='region'? all.filter(v=> v.geo && v.geo.region===top.key) : [];
+    const vsr = top.risks? vs.filter(v=> top.risks.includes(M.risk(v.id).approved)) : vs; vs.length = 0; vsr.forEach(v=> vs.push(v));
+    return html`<${P.Card} title=${top.label} sub=${vs.length+' material-plants. Double-click, press Enter or use › to open a profile.'} className="flush">
+      <${P.Table} cols=${[{ k:'n', l:'Material', fmt:(v)=> html`<b>${v.mat} · ${v.name}</b><div class="sub">${M.plantName(v.plant)}</div>`, sv:(v)=>v.name }, { k:'c', l:'Category', fmt:(v)=> M.CAT[v.cat].name, sv:(v)=>v.cat }, { k:'k', l:'Class', fmt:(v)=> M.cls(v.id) },
+        { k:'r', l:'Risk', fmt:(v)=> html`<${P.RiskTag} cat=${M.risk(v.id).approved} score=${M.risk(v.id).score} small=${true}/>`, sv:(v)=> M.risk(v.id).score }, { k:'cv', l:'Cover', r:true, fmt:(v)=> v.cover+'d', sv:(v)=> v.cover }, { k:'s', l:'Stock', r:true, fmt:(v)=> cr(M.stock(v.id)), sv:(v)=> M.stock(v.id) }]}
+        rows=${vs.sort((a,b)=> M.risk(b.id).score - M.risk(a.id).score)} rowKey=${(v)=>v.id} caption=${top.label} onOpen=${(v)=> dispatch({ t:'drill', node:profile(v.id) })}/></${P.Card}>`;
+  }
+
+  function App(){
+    const [fs, setF, pending] = P.useFilters('f'), f = M.unscope(fs);
+    const [nav, dispatch0] = P.useNav('materials', ['materials'], 'Material portfolio');
+    const dispatch = P.guard(dispatch0);
+    const top = M.nav.top(nav), cur = M.nav.material(nav, null);
+    const pick = (id)=>{ dispatch({ t:'home' }); dispatch({ t:'drill', node:profile(id) }); };
+    const goDoc = (id)=> dispatch({ t:'drill', node:N.doc(id) }), goCase = (id)=> dispatch({ t:'drill', node:N.case(id) }), goV = (id)=> dispatch({ t:'drill', node:profile(id) });
+    const isProf = top.t==='profile' || top.t==='vendor' || top.t==='material';
+    let body = null;
+    if(top.t==='group') body = html`<${MaterialGroup} f=${f} nav=${nav} dispatch=${dispatch}/>`;
+    else if(isProf) body = html`<${PF.Profile} id=${top.id} f=${f} onDoc=${goDoc} onCase=${goCase}/>`;
+    else if(top.t==='doc') body = html`<${P.DocView} id=${top.id} onMaterial=${goV} onCase=${goCase}/>`;
+    else if(top.t==='case') body = html`<${P.CaseView} id=${top.id} onDoc=${goDoc} onMaterial=${goV} onCase=${goCase}/>`;
+    const title = cur && isProf? M.matLabel(cur) : top.label;
+    const detail = nav.path.length>1;
+    return html`<div class="px-scr k-amber"><${P.ScreenTabs} on="materials" right=${html`<${P.FilterBar} f=${f} setF=${(n)=> setF(Object.assign({}, n, { pRisk:fs.pRisk, pGeo:fs.pGeo, pSeg:fs.pSeg }))} pending=${pending} compact=${true}/>`}/>
+      ${detail && html`<${P.GlobalCrumb} root=${{ kind:'Overview', label:'Material portfolio', icon:'Package', go:()=> dispatch({ t:'home' }) }} nav=${nav} dispatch=${dispatch} from=${1} show=${detail}/>`}
+      <div class="px-vws one">
+        ${detail? html`<section class="px-panel px-detail k-amber" aria-label=${title}><header class="px-ph"><div class="px-pt"><div class="px-pt-t"><h1><span class="px-h-i"><${Icon} n=${isProf? 'Package' : top.t==='doc'? 'FileText' : top.t==='case'? 'Crosshair' : 'Filter'} size=${20} strokeWidth=${1.6}/></span>${title}</h1></div>
+              <div class="px-pm"><span class="px-tag">${M.period(f.period).label}</span></div></div>
+            ${top.t!=='profile' && html`<${P.MaterialMarker} id=${cur} isProfile=${top.t==='profile'} onOpen=${()=> dispatch({ t:'drill', node:profile(cur) })}/>`}</header>
+            <${P.PanelBody} depth=${nav.path.length} sig=${nav.path.length+':'+top.t+':'+(top.id||top.key||'')} reset=${M.fkey(f)+nav.path.length}>${body}</${P.PanelBody}></section>`
+        : html`<main class="px-page k-amber vp-page" aria-label="Material portfolio"><h1 class="sr">Material portfolio</h1>
+          <${PF.Portfolio} f=${f} fs=${fs} setF=${setF} onProfile=${goV} onDoc=${goDoc}/></main>`}</div></div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+/* if the screen has not rendered after 8 s, say why instead of showing "Loading" forever */
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.SCM? 'The SC data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

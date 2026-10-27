@@ -1,0 +1,9 @@
+{
+  "name": "fct",
+  "version": "1.0.0",
+  "description": "FCT, Finance Control Tower: static HTML demo for the financial controller persona",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

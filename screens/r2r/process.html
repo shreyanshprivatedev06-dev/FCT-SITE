@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R2R process chain | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/r2r/load-r2r.js"></script>
+</head>
+<body data-page="r2r/process" data-root="../../">
+<div id="app"><p style="padding:24px">Loading the R2R process chain…</p></div>
+<script>
+/* Process chain: where Sub-ledger → Journals → Reconciliation → Review → Close → Report breaks, which entities cause it,
+   and the records behind it. Breadcrumb: Process chain › Stage › Issue › Entity › record. */
+(function(){
+  const { html, Icon, cx } = R2R, P = R2R, M = R2RM, C = M.C, FCT = window.FCT;
+  const { Fragment } = React;
+  const { cr, amt, pct } = P, N = P.rnode;
+  const ename = (id)=> id+' '+((M.E[id]||{}).name||'');
+  const entOf = (r)=> r.kind==='ic'? r.a : r.e;
+
+  /* records behind a stage or issue, from the chain scope; each record once with all its codes */
+  const recsOf = (S, stage, code, ent)=>{
+    const seen = new Map();
+    C.stages.filter(s=> !stage || s.id===stage).forEach(s=> Object.values(S[s.id].issues).filter(r=> !code || r.code===code).forEach(r=> r.recs.forEach(x=>{
+      if(ent && entOf(x)!==ent) return; const e = seen.get(x.id) || { x, codes:[] }; e.codes.push(r.code); seen.set(x.id, e); })));
+    return [...seen.values()];
+  };
+  const valOf = (q)=> Math.max(...q.codes.map(c=> M.recVal(q.x, c)));
+  const KN = { je:'Journal', rec:'Reconciliation', task:'Close task', ic:'Intercompany item', var:'Variance', acct:'Local account' };
+  const recCols = [
+    { k:'id', l:'Record', fmt:(q)=> html`<b class="nb">${q.x.kind==='je'? q.x.id : q.x.kind==='rec'? q.x.name : q.x.kind==='task'? q.x.name : q.x.kind==='ic'? q.x.ref : q.x.kind==='var'? q.x.line : q.x.local}</b><div class="sub">${KN[q.x.kind]}${q.x.m!=null? ' · '+M.mon(q.x.m) : ''}</div>`, sv:(q)=> q.x.id },
+    { k:'e', l:'Entity', fmt:(q)=> entOf(q.x), sv:(q)=> entOf(q.x) },
+    { k:'a', l:'Value affected', r:true, fmt:(q)=> q.x.kind==='task'? html`<span class="faint">—</span>` : amt(valOf(q)), sv:valOf },
+    { k:'i', l:'Issue', fmt:(q)=> html`<span class="px-bad">${q.codes.map(c=> M.issue(c).name).join('; ')}</span>`, sv:(q)=> q.codes.length } ];
+  const RecTable = ({ rows, dispatch, title })=> html`<${P.Card} title=${title||'Records'} sub=${'Which records? '+FCT.n(rows.length)+' records. Open one to see why it failed and what it holds up.'} className="flush">
+    <${P.Table} cols=${recCols} rows=${rows.slice().sort((a,b)=> valOf(b)-valOf(a))} rowKey=${(q)=> q.x.id} caption=${title||'Records'} onOpen=${(q)=> dispatch({ t:'drill', node:N.doc(q.x.id) })} limit=${20}/></${P.Card}>`;
+  const issueRows = (S, stage, ent)=>{ const rows = []; C.stages.filter(s=> !stage || s.id===stage).forEach(s=> Object.values(S[s.id].issues).forEach(r=>{
+      const recs = ent? r.recs.filter(x=> entOf(x)===ent) : r.recs; if(!recs.length) return; const val = M.sum(recs, x=> M.recVal(x, r.code));
+      rows.push({ key:r.code, label:M.issue(r.code).name, val:recs.length, value:val, sub:(stage? '' : M.stage(s.id).name+' · ')+(val>0.0005? amt(val)+' · ' : '')+{ fin:'Financial', ctl:'Control', ops:'Operational' }[M.issue(r.code).kind] }); }));
+    return rows.sort((a,b)=> b.val-a.val); };
+  const entRows = (S, stage, code)=>{ const g = {}; recsOf(S, stage, code).forEach(q=>{ const k = entOf(q.x), e = g[k] = g[k] || { key:k, label:ename(k), val:0, n:0 }; e.n++; e.val += valOf(q); });
+    return Object.values(g).sort((a,b)=> b.n-a.n).map(r=> Object.assign(r, { sub:FCT.n(r.n)+' records · '+(r.val>0.0005? amt(r.val)+' · ' : '')+'Close risk: '+M.risk(r.key).cat, val:r.n, tone:P.RISK[M.risk(r.key).cat] })); };
+
+  function Root({ f, nav, dispatch }){
+    const S = M.chainScope(f), sel = nav.sel && nav.sel.dim==='stage'? nav.sel.key : null, st = sel && S[sel], stDef = sel && M.stage(sel);
+    const tot = C.stages.reduce((s,x)=> s + S[x.id].n, 0), worst = C.stages.slice().sort((a,b)=> S[b.id].n/(S[b.id].vol||1) - S[a.id].n/(S[a.id].vol||1))[0], pr = M.kpi('progress', f);
+    return html`<${Fragment}>
+      <div class="px-stats row"><${P.Stat} label="Exceptions" value=${FCT.n(tot)+' of '+FCT.n(C.stages.reduce((s,x)=> s + S[x.id].vol, 0))} sub="Records with an issue, counted once at each process step"/>
+        <${P.Stat} label="Highest exception rate" value=${M.stage(worst.id).name} sub=${pct(S[worst.id].n/(S[worst.id].vol||1)*100,1)+' of '+FCT.n(S[worst.id].vol)+' records'}/>
+        <${P.Stat} label="Close Progress" value=${FCT.n(pr.done)+' of '+FCT.n(pr.n)+' tasks done'} sub=${'Forecast close '+M.wdl(pr.forecast)+', target WD+'+C.targetWD}/>
+        <${P.Stat} label="Potential Adjustments" value=${cr(M.kpi('adj', f).v)} sub="Estimated value that could be wrong in the books; not yet booked"/></div>
+      <${P.Card} title="Where in the R2R chain the issues arise" sub="Which step of the close is hurt? Click a step to see it; double-click or use › to open it. The finish day is the median for that step's close tasks.">
+        <ol class="px-flow" aria-label="R2R process chain">${C.stages.map((s,i)=>{ const x = S[s.id], top = x.list[0], mx = Math.max(...C.stages.map(z=> S[z.id].n)) || 1;
+          return html`<li key=${s.id} class=${cx(sel===s.id && 'on')}>
+            <button type="button" class="px-stage" aria-pressed=${sel===s.id} onClick=${()=> dispatch({ t:'sel', v:{ key:s.id, dim:'stage' } })} onDoubleClick=${()=> dispatch({ t:'drill', node:N.stage(s.id) })}>
+              <span class="sh"><${Icon} n=${s.icon} size=${15}/><b>${s.name}</b></span>
+              <span class="sv num">${FCT.n(x.n)}<small> of ${FCT.n(x.vol)} with issues</small></span>
+              <span class="sb" aria-hidden="true"><i style=${{width: Math.max(2, x.n/mx*100)+'%', background:P.heatColor(x.n, mx)}}/></span>
+              <span class="sx">${x.val>0.0005? amt(x.val)+' affected' : 'Tasks only'}${x.ct!=null? ' · finish '+M.wdl(x.ct) : ''}</span>
+              <span class="st">${top? M.issue(top.code).name : 'No issues'}</span></button>
+            <button type="button" class="px-drill" aria-label=${'Drill in to '+s.name} onClick=${()=> dispatch({ t:'drill', node:N.stage(s.id) })}><${Icon} n="ChevronRight" size=${14}/></button>
+            ${i<5 && html`<span class="ar" aria-hidden="true">→</span>`}</li>`; })}</ol></${P.Card}>
+      <${P.Card} title="Exceptions by entity and process step" sub="Who is behind it? Number = records with an issue. Click a cell to open that entity at that step; click a name for its Entity Profile.">
+        <${P.Heat} rows=${M.heat(f, 10)} rowLabel="Entity" onVendor=${(e)=> dispatch({ t:'drill', node:N.profile(e) })}
+          onCell=${(e, s)=>{ dispatch({ t:'drill', node:N.stage(s) }); dispatch({ t:'drill', node:N.entity(e) }); }}/></${P.Card}>
+      <div class="px-grid g-bd">
+        <${P.Card} title=${st? 'Exceptions at '+stDef.name : 'Exceptions by issue'} sub=${st? stDef.q+' '+FCT.n(st.n)+' of '+FCT.n(st.vol)+' records with an issue · '+amt(st.val)+' value affected.' : 'What is behind it? Every issue, ranked by records. Click a step above to focus.'}
+          right=${st && html`<button type="button" class="btn sm primary" onClick=${()=> dispatch({ t:'drill', node:N.stage(sel) })}>Drill in<${Icon} n="ChevronRight" size=${14}/></button>`}>
+          <${P.BarList} rows=${issueRows(S, sel)} label="Exceptions by issue" fmt=${(v)=> FCT.n(v)} rate=${true} onOpen=${(r)=>{ if(sel) dispatch({ t:'drill', node:N.stage(sel) }); dispatch({ t:'drill', node:N.issue(r.key) }); }} limit=${10}/></${P.Card}>
+        <${P.Card} title="Fixes in the pipeline" sub="Close improvements mapped to the stage they fix">
+          <div class="px-kv">${C.opps.filter(o=> !sel || o.stage===sel).map(o=> html`<div key=${o.id}><span><b>${M.stage(o.stage).name}</b> · ${o.title}<br/><small>${o.id} · ${o.owner} · ${o.status}</small></span><b class="num">${o.value}</b></div>`)}
+            ${!C.opps.some(o=> !sel || o.stage===sel) && html`<p class="px-p faint">No fix planned for this stage yet.</p>`}</div></${P.Card}></div>
+</${Fragment}>`;
+  }
+
+  function StageView({ f, nav, dispatch, stage, code }){
+    const S = M.chainScope(f), st = S[stage], recs = recsOf(S, stage, code);
+    const isel = nav.sel && nav.sel.dim==='issue'? nav.sel.key : null, esel = nav.sel && nav.sel.dim==='entity'? nav.sel.key : null;
+    if(!recs.length) return html`<${P.Empty} text="No records with this issue under the current filters."/>`;
+    return html`<${Fragment}>
+      <div class="px-stats row">${!code? html`<${P.Stat} label="Records" value=${FCT.n(st.vol)} sub="Records at this step in the period"/><${P.Stat} label="Exceptions" value=${FCT.n(st.n)+' of '+FCT.n(st.vol)} sub=${pct(st.vol? st.n/st.vol*100 : null)+' of records have an issue'}/>`
+          : html`<${P.Stat} label="Records" value=${FCT.n(recs.length)}/><${P.Stat} label="Type" value=${{ fin:'Financial', ctl:'Control', ops:'Operational' }[M.issue(code).kind]} sub=${M.stage(stage).name}/>`}
+        <${P.Stat} label="Value affected" value=${amt(M.sum(recs, valOf))}/><${P.Stat} label="Entities" value=${FCT.n(new Set(recs.map(q=> entOf(q.x))).size)}/></div>
+      <div class=${cx('px-grid', code? '' : 'g-2')}>
+        ${!code && html`<${P.Card} title="Exceptions by issue" sub="What is behind it? Click a bar to see it; double-click to open it.">
+          <${P.BarList} rows=${issueRows(S, stage)} label="Exceptions by issue" fmt=${(v)=> FCT.n(v)} rate=${true} sel=${isel} onSelect=${(r)=> dispatch({ t:'sel', v:{ key:r.key, dim:'issue' } })} onOpen=${(r)=> dispatch({ t:'drill', node:N.issue(r.key) })}/></${P.Card}>`}
+        <${P.Card} title="Exceptions by entity" sub="Who is behind it? Bar colour = the entity's close-risk category. Click a bar to see it; double-click to open it.">
+          <${P.BarList} rows=${entRows(S, stage, code || isel)} label="Entities" fmt=${(v)=> FCT.n(v)} sel=${esel} onSelect=${(r)=> dispatch({ t:'sel', v:{ key:r.key, dim:'entity' } })} onOpen=${(r)=> dispatch({ t:'drill', node:N.entity(r.key) })} limit=${10}/></${P.Card}></div>
+      <${RecTable} rows=${recs} dispatch=${dispatch} title=${code? M.issue(code).name : 'Exceptions at '+M.stage(stage).name}/></${Fragment}>`;
+  }
+
+  function EntityAtStage({ f, dispatch, stage, code, ent }){
+    const S = M.chainScope(f), recs = recsOf(S, stage, code, ent), p = M.entity(ent), why = M.why(ent, null);
+    return html`<${Fragment}>
+      <div class="px-grid g-2"><${P.Card} title=${'Why '+ename(ent)+' surfaced'} right=${html`<button type="button" class="btn primary sm" onClick=${()=> dispatch({ t:'drill', node:N.profile(ent) })}>Open full Entity Profile</button>`}>
+          <ul class="px-why"><li class="w-ctx"><b>${code? M.issue(code).name : M.stage(stage).name}: </b>${recs.length} records, ${amt(M.sum(recs, valOf))} in the ${M.period(f.period).label}</li>${why.map((w,i)=> html`<li key=${i} class=${'w-'+w.t}>${w.text}</li>`)}</ul></${P.Card}>
+        <${P.Card} title="Where in the process chain this entity has issues" sub="Sep-26 close: records with an issue and value affected at each step.">
+          <div class="px-kv">${p.stages.map(s=> html`<div key=${s.id} class=${s.id===stage? 'on' : ''}><span>${s.id===stage? html`<b>${s.name}</b>` : s.name}</span><b>${s.n} · ${amt(s.val)}</b></div>`)}</div></${P.Card}></div>
+      <${RecTable} rows=${recs} dispatch=${dispatch} title=${'Exceptions at '+ename(ent)}/></${Fragment}>`;
+  }
+
+  function App(){
+    const [f, setF, pending] = P.useFilters('f');
+    const [nav, dispatch0] = P.useNav('process', ['process'], 'Process chain');
+    const dispatch = P.guard(dispatch0);
+    const top = M.nav.top(nav), groups = M.nav.groups(nav), cur = M.nav.entity(nav, f);
+    const code = (groups.find(g=> g.dim==='issue')||{}).key, stage = (groups.find(g=> g.dim==='stage')||{}).key || (code? M.issue(code).stage : null);
+    const goDoc = (id)=> dispatch({ t:'drill', node:N.doc(id) }), goCase = (id)=> dispatch({ t:'drill', node:N.case(id) }), goE = (id)=> dispatch({ t:'drill', node:N.profile(id) });
+    let body = null;
+    if(top.t==='group') body = html`<${StageView} f=${f} nav=${nav} dispatch=${dispatch} stage=${stage} code=${code}/>`;
+    else if(top.t==='entity') body = html`<${EntityAtStage} f=${f} dispatch=${dispatch} stage=${stage} code=${code} ent=${top.id}/>`;
+    else if(top.t==='eprofile') body = html`<${P.EntityProfile} id=${top.id} f=${f} ctx=${null} onDoc=${goDoc} onCase=${goCase}/>`;
+    else if(top.t==='doc') body = html`<${P.RDocView} id=${top.id} onEntity=${goE} onCase=${goCase} onDoc=${goDoc}/>`;
+    else if(top.t==='case') body = html`<${P.RCaseView} id=${top.id} onDoc=${goDoc} onEntity=${goE} onCase=${goCase}/>`;
+    const title = stage? M.stage(stage).name+(code? ': '+M.issue(code).name : '') : top.label, detail = nav.path.length>1;
+    return html`<div class="px-scr k-teal"><${P.ScreenTabs} on="process" right=${html`<${P.RFilterBar} f=${f} setF=${setF} pending=${pending}/>`}/>
+      <${P.GlobalCrumb} root=${{ kind:'Overview', label:'Process chain', icon:'Layers', go:()=> dispatch({ t:'home' }) }} nav=${nav} dispatch=${dispatch} from=${1} show=${detail}/>
+      ${detail? html`<section class="px-panel px-detail k-teal" aria-label=${title}><header class="px-ph"><div class="px-pt"><div class="px-pt-t"><h1><span class="px-h-i"><${Icon} n=${stage? M.stage(stage).icon : 'Layers'} size=${20} strokeWidth=${1.6}/></span>${title}</h1>${stage && html`<p>${M.stage(stage).q}</p>`}</div>
+            <div class="px-pm"><span class="px-tag">${M.period(f.period).label}</span><span class="faint">Open items at ${C.snapLabel}</span></div></div>
+          <${P.EntityMarker} id=${cur} isProfile=${top.t==='eprofile'} onOpen=${()=> dispatch({ t:'drill', node:N.profile(cur) })} onClear=${f.entity===cur? ()=> setF(Object.assign({}, f, { entity:'All' })) : null}/></header>
+          <${P.PanelBody} depth=${nav.path.length} sig=${nav.path.length+':'+top.t+':'+(top.id||top.key||'')} reset=${M.fkey(f)+nav.path.length}>${body}</${P.PanelBody}></section>`
+        : html`<main class="px-page wide k-teal" aria-label="R2R process chain"><div class="px-page-h"><h1>R2R process chain</h1><p>${'Where sub-ledger close, journals, reconciliation, review, consolidation and reporting break, and which entities cause it. '+M.period(f.period).label+'; open items at '+C.snapLabel+'.'}</p></div>
+          <${Root} f=${f} nav=${nav} dispatch=${dispatch}/></main>`}</div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.R2RM? 'The R2R data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

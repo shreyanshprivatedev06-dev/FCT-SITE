@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entity profiles | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/r2r/load-r2r.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+<!-- MapLibre GL 5.6.0 (BSD-3) draws the full-width map stage; the base map style comes from CARTO -->
+<link rel="stylesheet" href="../../assets/vendor/maplibre/maplibre-gl.css">
+<script src="../../assets/vendor/maplibre/maplibre-gl.js"></script>
+<script src="../../assets/js/map/map-card.js"></script>
+<script src="../../assets/js/portfolio/portfolio.js"></script>
+<style>
+.rx-map-stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;min-height:440px}
+.rx-map{position:relative;z-index:0;isolation:isolate;height:440px;border-radius:10px;border:1px solid var(--px-line);overflow:hidden;background:#1c2423}
+body.theme-light .rx-map{background:#e9edec}
+.px-dd-p{z-index:2000}
+.rx-side{border:1px solid var(--px-line);border-radius:10px;display:flex;flex-direction:column;max-height:440px;overflow:hidden}
+.rx-side .hd{padding:10px 12px;border-bottom:1px solid var(--px-line);display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.rx-side ul{list-style:none;margin:0;padding:4px;overflow:auto}
+.rx-side li button{display:grid;grid-template-columns:1fr auto;gap:2px 8px;width:100%;text-align:left;border:0;background:none;color:inherit;font:inherit;padding:8px;border-radius:6px;cursor:pointer}
+.rx-side li button:hover,.rx-side li.hit button{background:color-mix(in srgb,var(--px-ink) 8%,transparent)}
+.rx-side .nm{font-weight:600}.rx-side .vm{grid-column:1/-1;font-size:12px;color:var(--px-ink3)}
+.rx-pin .seal{position:relative;display:flex;flex-direction:column;align-items:center}
+.rx-pin .name{position:absolute;bottom:100%;margin-bottom:3px;white-space:nowrap;font:600 11px/1.2 system-ui;padding:2px 6px;border-radius:4px;background:rgba(15,26,25,.85);color:#e4ebe9}
+body.theme-light .rx-pin .name{background:rgba(255,255,255,.92);color:#15211f;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.rx-pin .head{border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+.rx-pin .well{width:70%;height:70%;border-radius:50%;background:#14201f;display:flex;align-items:center;justify-content:center}
+body.theme-light .rx-pin .well{background:#fff}
+.rx-pin .well em{font:700 10px system-ui;font-style:normal;color:#e4ebe9}body.theme-light .rx-pin .well em{color:#15211f}
+.rx-pin .stem{width:2px;height:10px;background:rgba(0,0,0,.55)}
+.rx-pin.off{opacity:.25}.rx-pin.on .head{outline:3px solid #fff;outline-offset:1px}
+.rx-pin.pulse .head{animation:rxp 2.4s infinite}@keyframes rxp{0%,100%{box-shadow:0 0 0 0 rgba(242,139,128,.55)}50%{box-shadow:0 0 0 9px rgba(242,139,128,0)}}
+.rx-tip{font:12px/1.4 system-ui}
+@media (max-width:900px){.rx-map-stage{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-page="r2r/entities" data-root="../../">
+<div id="app"><p style="padding:24px">Loading entity profiles…</p></div>
+<script>
+/* Entity profiles: the entity portfolio (close risk, progress by task group, where entities break the process chain, mapping, IC pairs)
+   and the full Entity Profile for any entity. Breadcrumb: Entity portfolio › group › Entity › record or case. */
+(function(){
+  const { html, h, COL, Icon, cx } = R2R, P = R2R, M = R2RM, C = M.C, FCT = window.FCT, D = window.FCT_DATA;
+  const { useState, useEffect, useRef, Fragment } = React;
+  const { cr, amt, pct } = P, N = P.rnode;
+  const ename = (id)=> id+' '+M.E[id].name;
+
+  /* the page body is the shared portfolio (assets/js/portfolio/portfolio.js); this adapter tells it about R2R legal entities.
+     Its three tiers are R2R's own entity filters: close risk (crisk), region and entity class (seg). */
+  const THEMES = [
+    { id:'sub', name:'Sub-ledgers and feeds', codes:['tkSub','feed'], why:'Sub-ledger close behind plan or upstream feeds stale' },
+    { id:'jnl', name:'Journals and accruals', codes:['tkJnl','jeNoSupp','jeLate','jeSod','jeAnom','jeCorr','jePend'], why:'Journals unsupported, anomalous, late or self-approved' },
+    { id:'rec', name:'Reconciliations', codes:['tkRec','recBreak','recDiff','recAged'], why:'Unexplained differences or ageing reconciling items' },
+    { id:'rev', name:'Review and certification', codes:['tkRev','recLate','recDue','selfRev'], why:'Reconciliations certified late, not yet, or by the preparer' },
+    { id:'ic', name:'Intercompany and close', codes:['tkCls','perPost','icConf','icUnm'], why:'IC not agreed or confirmed, or postings into a closed period' },
+    { id:'rpt', name:'Mapping and reporting', codes:['unmapped','tkRpt','varNoComm','tieOut'], why:'Unmapped accounts, pack not tying out, variances without commentary' } ];
+  const CASE_THEME = { accrMiss:'jnl', accrDup:'jnl', cutoff:'jnl', anomJe:'jnl', reclass:'jnl', nosupp:'jnl', recBreak:'rec', suspense:'rec', icBreak:'ic', fxReval:'ic', provision:'ic', period:'ic', mapping:'rpt' };
+  const CT = {}; (C.caseTypes||[]).forEach(t=> CT[t.id] = t);
+  const W = {}; const wrap = (e)=> W[e.id] || (W[e.id] = { id:e.id, name:e.name, seg:e.seg, region:e.region, e, geo: e.site? { city:e.site.city, region:e.region, lat:e.site.lat, lng:e.site.lng } : null });
+  const byEnt = (fs, key)=>{ const o = {}; M.ents(fs).forEach(e=> o[e.id] = M.kpi(key, Object.assign({}, fs, { entity:e.id })).v||0); return o; };
+  const normCase = (c)=> ({ id:c.id, type:c.type, typeName:(CT[c.type]||{}).name || c.type, amount:c.est!=null? c.est : (c.affected||0), measure:M.statusMeasure(c.stNow), stName:M.statusName(c.stNow), age:Math.max(0, Math.floor(M.SNAP - c.opened)), ex:c.ex });
+  const T = {
+    mapStage:true, noun:'entity', nounPl:'entities', idLabel:'Entity', profileLabel:'Entity profile', segLabel:'Entity class', caseIdEg:'RC-26001', processHref:'screens/r2r/process.html',
+    valName:'Unreconciled', valShort:'unreconciled', scatterTitle:'Unreconciled Risk', noAxisLabel:true, peerChart:true, valWhen:(fs)=> M.period(fs.period).label, secName:'Journals pending', secShort:'Journals pending',
+    riskCats:C.risk.cats.map(c=> c.id), riskDefs:C.risk.defs, regions:C.regions, segs:C.segs, themes:THEMES, caseTheme:CASE_THEME,
+    recs:(fs)=> M.ents(fs).map(wrap), byId:(id)=> M.E[id] && wrap(M.E[id]), fkey:M.fkey,
+    val:(fs)=> byEnt(fs, 'unrec'), sec:(fs)=> byEnt(fs, 'jpend'),
+    exposure:(fs)=>{ const o = {}; M.cases(fs).forEach(c=>{ if(M.statusMeasure(c.stNow)==='potential' && c.est) o[c.e] = (o[c.e]||0) + c.est; }); return o; },
+    risk:(id)=>{ const r = M.risk(id); return { cat:r.cat, score:r.score, why:'Forecast close '+M.wdl(r.fc)+'. '+((r.factors||[]).filter(x=> x.v!=null).sort((a,b)=> b.v-a.v)[0]||{}).why }; },
+    seg:(id)=> (M.E[id]||{}).seg, sub:(v)=> (v.geo? v.geo.city+', '+v.region : v.region)+' · '+v.seg+' · '+v.e.type,
+    tags:(id)=>{ const e = M.E[id]; return [e.feed && ['Feed issue','a']].filter(Boolean); },
+    stages:(fs, ids)=>{ const S = M.chainScope(fs); return C.stages.map(s=> ({ id:s.id, name:s.name, q:s.q, n:S[s.id].n, val:S[s.id].val, nv:Object.keys(S[s.id].ents).filter(e=> ids.has(e)).length })); },
+    issueRecs:(fs)=>{ const S = M.chainScope(fs), out = []; C.stages.forEach(st=> Object.values(S[st.id].issues).forEach(r=> r.recs.forEach((x)=> out.push({ code:r.code, name:M.issue(r.code).name, ent:x.kind==='ic'? x.a : x.e, id:x.id, val:M.recVal(x, r.code)||0 })))); return out; },
+    issueName:(c)=> M.issue(c).name, recLabel:(id)=>{ try{ return N.doc(id).label; }catch(e){ return id; } },
+    cases:(id, fs)=> M.cases(fs).filter(c=> c.e===id).map(normCase),
+    caseInfo:(id)=>{ const c = M.case(id); return c && { typeName:(CT[c.type]||{}).name || c.type, rec:c.e, recName:ename(c.e) }; },
+    caseView:(id, h2)=> html`<${P.RCaseView} key=${id} id=${id} onDoc=${h2.onDoc} onEntity=${h2.onRec} onCase=${h2.onCase}/>`,
+    tower:'r2r', towerName:'R2R',
+    issueKind:(c)=> M.issue(c).kind, issueStage:(c)=> (M.stage(M.issue(c).stage)||{}).name, factors:(id)=> M.risk(id).factors, caseLines:(id)=> (M.case(id)||{}).lines||[],
+    trend:(id)=>{ const b = M.entity(id).manByM||[]; return { name:'Manual journals posted', sub:'Value by month', fmt:(x)=> P.cr(x,1), tick:(x)=> '₹'+FCT.n(x,0), data:C.months.map((m,i)=> ({ m:m.slice(0,3), v:+(b[i]||0).toFixed(2) })) }; },
+    docView:(id, h2)=> html`<${P.RDocView} key=${id} id=${id} onEntity=${h2.onRec} onCase=${h2.onCase} onDoc=${()=>{}} act=${h2.act} theme=${h2.theme}/>`,
+    heat:(fs)=> M.heat(fs, 10),
+    getScope:(fs)=> ({ pRisk:fs.crisk||'All', pGeo:fs.region||'All', pSeg:fs.seg||'All' }),
+    setScope:(fs, o)=> Object.assign({}, fs, 'pRisk' in o? { crisk:o.pRisk } : {}, 'pGeo' in o? { region:o.pGeo } : {}, 'pSeg' in o? { seg:o.pSeg } : {}) };
+  const PF = FCTPortfolio.make(P, T);
+  const untier = (fs)=> Object.assign({}, fs, { region:'All', seg:'All', crisk:'All' });   /* tiles cross-count on the entities before the tiers */
+
+  function EntityGroup({ f, nav, dispatch }){
+    const top = M.nav.top(nav), city = (e)=> SITES[e.id] && e.region+'|'+SITES[e.id].city;
+    const es = M.ents(f).filter(e=> top.dim==='erisk'? M.risk(e.id).cat===top.key : top.dim==='city'? city(e)===top.key : top.dim==='region'? e.region===top.key : true)
+      .filter(e=> !top.risks || top.risks.includes(M.risk(e.id).cat));
+    return html`<${P.Card} title=${top.label} sub=${es.length+' entities. Double-click, press Enter or use › to open a profile.'} className="flush">
+      <${P.Table} cols=${P.rcols('entities','entity')} rows=${es.map(e=> ({ rec:e, kind:'entity', e:e.id, val:0, g:{} }))} rowKey=${(x)=> x.e} caption=${top.label} onOpen=${(x)=> dispatch({ t:'drill', node:N.profile(x.e) })}/></${P.Card}>`;
+  }
+
+  function App(){
+    const [f, setF, pending] = P.useFilters('f');
+    const [nav, dispatch0] = P.useNav('entities', ['entities'], 'Entity portfolio');
+    const dispatch = P.guard(dispatch0);
+    const top = M.nav.top(nav), cur = M.nav.entity(nav, null);
+    const goDoc = (id)=> dispatch({ t:'drill', node:N.doc(id) }), goCase = (id)=> dispatch({ t:'drill', node:N.case(id) }), goE = (id)=> dispatch({ t:'drill', node:N.profile(id) });
+    let body = null;
+    if(top.t==='group') body = html`<${EntityGroup} f=${f} nav=${nav} dispatch=${dispatch}/>`;
+    else if(top.t==='eprofile' || top.t==='entity') body = html`<${PF.Profile} id=${top.id} f=${untier(f)} onDoc=${goDoc} onCase=${goCase}/>`;
+    else if(top.t==='doc') body = html`<${P.RDocView} id=${top.id} onEntity=${goE} onCase=${goCase} onDoc=${goDoc}/>`;
+    else if(top.t==='case') body = html`<${P.RCaseView} id=${top.id} onDoc=${goDoc} onEntity=${goE} onCase=${goCase}/>`;
+    const title = cur && (top.t==='eprofile' || top.t==='entity')? ename(cur) : top.label, detail = nav.path.length>1;
+    return html`<div class="px-scr k-amber"><${P.ScreenTabs} on="entities" right=${html`<${P.RFilterBar} f=${f} setF=${setF} pending=${pending}/>`}/>
+      ${detail && html`<${P.GlobalCrumb} root=${{ kind:'Overview', label:'Entity portfolio', icon:'Building2', go:()=> dispatch({ t:'home' }) }} nav=${nav} dispatch=${dispatch} from=${1} show=${detail}/>`}
+      <div class="px-vws" style=${{ gridTemplateColumns:'minmax(0,1fr)' }}>
+        ${detail? html`<section class="px-panel px-detail k-amber" aria-label=${title}><header class="px-ph"><div class="px-pt"><div class="px-pt-t"><h1><span class="px-h-i"><${Icon} n=${top.t==='doc'? 'FileText' : top.t==='case'? 'Crosshair' : 'Building2'} size=${20} strokeWidth=${1.6}/></span>${title}</h1></div>
+              <div class="px-pm"><span class="px-tag">${M.period(f.period).label}</span><span class="faint">Close status at ${C.snapLabel}</span></div></div>
+            ${top.t!=='eprofile' && html`<${P.EntityMarker} id=${cur} isProfile=${top.t==='eprofile'} onOpen=${()=> dispatch({ t:'drill', node:N.profile(cur) })}/>`}</header>
+            <${P.PanelBody} depth=${nav.path.length} sig=${nav.path.length+':'+top.t+':'+(top.id||top.key||'')} reset=${M.fkey(f)+nav.path.length}>${body}</${P.PanelBody}></section>`
+        : html`<main class="px-page k-amber vp-page" aria-label="Entity portfolio"><h1 class="sr">Entity portfolio</h1>
+          <${PF.Portfolio} f=${untier(f)} fs=${f} setF=${setF} onProfile=${goE} onDoc=${goDoc}/></main>`}</div></div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.R2RM? 'The R2R data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controls | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../assets/js/cmp/cmp-preview.js"></script>
+</head>
+<body class="px-full" data-page="cmp/controls" data-root="../../">
+<script>try{ if((localStorage.getItem("fct-p2p-theme")||"dark")==="light") document.body.classList.add("theme-light"); }catch(e){}</script>
+<div id="app"><p style="padding:24px">Loading Controls…</p></div>
+<script>
+/* DESIGN PREVIEW of Compliance step 2: Controls, "What is broken?" */
+(function(){
+  const P = P2P, html = P.html, Icon = P.Icon, R = P.R, COL = P.COL, FCT = window.FCT, C = CMPV, D = C.D, { pc, n1, cr } = C;
+  /* Sep-26 pass % for the five focus entities and the other five (03 §3.3) */
+  const BYENT = { 'CTL-P2P-009':[0,null,null,null,null,null], 'CTL-P2P-020':[95.22,93.29,93.31,96.51,90.24,91.97], 'CTL-P2P-031':[86.59,88.12,87.91,87.16,88.13,89.26],
+    'CTL-P2P-017':[88.90,90.68,98.94,97.74,98.73,97.04], 'CTL-P2P-022':[96.66,97.30,96.69,97.27,96.99,97.15], 'CTL-P2P-021':[92.95,92.03,91.67,95.83,96.15,91.67],
+    'CTL-P2P-014':[99.24,99.36,99.70,98.15,98.73,99.15], 'CTL-P2P-010':[100,100,99.94,99.95,100,99.98], 'CTL-P2P-015':[72.57,90.42,79.73,75.72,90.56,null],
+    'CTL-P2P-024':[96.15,95.65,94.44,100,100,100], 'CTL-CMP-003':[100,95.65,100,100,100,100] };
+  const ENTS = D.focus.concat(['Other 5']);
+  const proc = D.procs, keyEff = (138-14)/138*100;
+  const at80 = (v)=> Math.max(0, Math.min(100, (v-80)/20*100))+'%';   /* bullet bars run 80% → 100% */
+  const tgt = (v, t)=> v>=t? 'g' : v>=t-1? 'a' : 'r', tcol = (v, t)=> ({ g:'var(--px-pos)', a:'var(--px-medium)', r:'var(--px-crit)' })[tgt(v, t)];
+  const Bullet = ({ v, target, col, label })=> html`<div class="px-bullet" role="img" aria-label=${label+' '+pc(v,2)+' against target '+target+'%, scale 80–100%'}><i style=${{ width:at80(v), background:col }}/><b style=${{ left:at80(target) }} title=${'Target '+target+'%'}/></div>
+    <div class="sub" style=${{display:'flex', justifyContent:'space-between', fontSize:'11px'}}><span>80%</span><span>Target ${target}%</span><span>100%</span></div>`;
+  const cname = (id)=>{ const f = D.failing.find(x=> x[0]===id); return f? f[1] : ''; };
+  const worst = (id)=> Math.min(...BYENT[id].filter(v=> v!=null));
+  const SEV = { critical:0, high:1, medium:2, low:3 };
+  const FAIL = D.failing.slice().sort((a,b)=> SEV[a[4]]-SEV[b[4]] || (b[7]?1:0)-(a[7]?1:0));
+
+  /* regulatory compliance: late returns, returns due next, and the regulatory change register (data/cmp.js) */
+  /* one filing due in the next 30 days: timeline to the legal date, each entity's status, and the cost of missing it */
+  const FilingDetail = ({ n, E, ch, chaseEnt, part })=>{ const not = E.rows.filter(r=> !r[1]);
+    if(part==='strip'){ const d = (x)=> +x.slice(0,2), steps = [['Today','05-Oct',''],['Internal deadline',E.cut,(d(E.cut)-5)+' days from today'],['Legal due date',n[1],(d(n[1])-d(E.cut))+' days after the internal deadline']];
+      return html`<div><p style=${{margin:'0 0 10px', fontWeight:600}}>${not.length? (n[2]-n[3])+' of '+n[2]+' returns not ready, '+(d(n[1])-5)+' days before the legal date' : 'All '+n[2]+' returns ready; filing by '+E.cut}</p>
+        <div style=${{display:'grid', gridTemplateColumns:'1fr auto 1fr auto 1fr', alignItems:'center', gap:'6px'}}>${steps.map((t,i)=> html`${i? html`<span key=${'a'+i} style=${{opacity:.5}}>→</span>` : null}<div key=${t[0]} style=${{border:'1px solid '+(i===2? 'var(--px-crit, #E5484D)' : 'rgba(140,160,155,.35)'), borderRadius:'8px', padding:'8px 10px'}}>
+          <div class="faint" style=${{fontSize:'11.5px'}}>${t[0]}</div><div style=${{fontSize:'16px', fontWeight:700, color:i===2? 'var(--px-crit, #E5484D)' : 'inherit'}}>${t[1]}</div>${t[2] && html`<div class="faint" style=${{fontSize:'11.5px'}}>${t[2]}</div>`}</div>`)}</div>
+        <p class="faint" style=${{margin:'8px 0 0', fontSize:'12px'}}>Internal deadline: 2 working days before the legal date, to allow review and payment.</p></div>`; }
+    const tone = (r)=> r[1]? 'var(--px-pos, #3FB68B)' : 'var(--px-crit, #E5484D)';
+    return html`<div style=${{display:'grid', gap:'8px'}}>${E.rows.slice().sort((a,b)=> a[1]-b[1]).map(r=> html`<div key=${r[0]} style=${{border:'1px solid rgba(140,160,155,.3)', borderLeft:'3px solid '+tone(r), borderRadius:'8px', padding:'8px 10px'}}>
+      <div style=${{display:'flex', alignItems:'center', gap:'8px'}}><b>${r[0]}</b><span class="faint" style=${{fontSize:'12px', flex:1}}>${D.entName[r[0].slice(0,5)]||''}</span>
+        <span style=${{fontSize:'12px', fontWeight:600, color:tone(r)}}>${r[1]? 'Ready' : 'Not ready'}</span>
+        ${r[1]? null : ch[n[0]+r[0]]? html`<span class="faint" style=${{fontSize:'12px'}}>Chased today</span>` : html`<button type="button" class="btn sm" onClick=${()=> chaseEnt(n, r)}>Chase</button>`}</div>
+      <div style=${{fontSize:'13px', margin:'4px 0 2px'}}>${r[2]}</div>
+      <div class="faint" style=${{fontSize:'12px'}}>Prepared by ${D.filings.prep[r[0].slice(0,5)]||n[4]}${r[3]? ' · pending since '+r[3] : ''}</div></div>`)}</div>`; };
+  const RegSec = ()=>{ const [ch, setCh] = React.useState({}), [op, setOp] = React.useState(null), REG = ((window.FCT_DATA || {}).cmp || {}).reg || [];
+    const chaseEnt = (n, r)=>{ setCh((p)=> Object.assign({}, p, { [n[0]+r[0]]:1 })); FCT.ui && FCT.ui.toast && FCT.ui.toast('Reminder sent to '+(D.filings.prep[r[0].slice(0,5)]||n[4])+' for '+n[0]+' at '+r[0]+', due '+n[1]+' (simulated)'); };
+    const chase = (n)=>{ setCh((p)=> Object.assign({}, p, { [n[0]+n[1]]:1 })); FCT.ui && FCT.ui.toast && FCT.ui.toast('Reminder sent to '+n[4]+' for '+(n[2]-n[3])+' '+n[0]+' filings due '+n[1]+' (simulated)'); };
+    return html`<${Fold} id="sec-reg" sec=${(o, tg, kids)=> html`<${C.Sec} c="kpi" icon="Landmark" title="Regulatory compliance" sub=${pc(C.fil.rate,1)+' filed on time against a '+D.filings.target+'% target; the next 30 days below.'}
+      right=${html`${tg}<${C.Pill} tone="a">${C.fil.late} of ${C.fil.due} filed late</${C.Pill}><${C.Pill} tone="a">${C.fil.notReady} of ${C.fil.next} not ready</${C.Pill}><${C.Pill} tone="r">1 of 3 changes to assess</${C.Pill}>`}>${kids}</${C.Sec}>`}>
+      <div class="px-brow">
+        <div style=${{gridColumn:'1 / -1'}}><${C.Card} k="k-violet" icon="CalendarClock" title="Next 30 days: filing deadlines and the rule change">
+          ${(()=>{ const days = (d)=> (d.slice(3)==='Nov'? +d.slice(0,2)+31 : +d.slice(0,2)) - 5, G = [];
+            D.filings.next.forEach(n=>{ const g = G.find(x=> x.d===n[1]); g? g.fs.push(n) : G.push({ d:n[1], fs:[n] }); }); G.push({ d:'01-Nov', rule:true, fs:[] });
+            return html`<div style=${{display:'grid', gridTemplateColumns:'repeat('+G.length+', minmax(0,1fr))', gap:'8px', position:'relative', marginTop:'6px'}}>
+              <div aria-hidden="true" style=${{position:'absolute', left:'8%', right:'8%', top:'46px', height:'2px', background:'var(--line, rgba(140,160,155,.4))'}}/>
+              ${G.map(g=>{ const miss = g.fs.reduce((t,n)=> t+n[2]-n[3], 0), c = g.rule? 'var(--px-medium, #D9B65A)' : miss? 'var(--px-crit, #E5484D)' : 'var(--px-pos, #3FB68B)';
+                return html`<div key=${g.d} style=${{position:'relative', textAlign:'center'}}>
+                  <div style=${{fontSize:'12px', fontWeight:700}}>${g.d}</div><div class="faint" style=${{fontSize:'11px', marginBottom:'4px'}}>in ${days(g.d)} days</div>
+                  <div style=${{width:'14px', height:'14px', margin:'0 auto 8px', borderRadius:g.rule? '2px' : '50%', transform:g.rule? 'rotate(45deg)' : null, background:c, position:'relative'}}/>
+                  ${g.rule? html`<div style=${{fontSize:'12px', fontWeight:600}}>E-invoice 30-day rule</div><div class="faint" style=${{fontSize:'11px'}}>takes effect</div>`
+                    : g.fs.map(n=> html`<button key=${n[0]} type="button" onClick=${()=> setOp(n[0]+n[1])} title=${n[5] || 'All returns ready'}
+                      style=${{display:'block', width:'100%', margin:'0 0 4px', padding:'4px 6px', borderRadius:'6px', cursor:'pointer', font:'inherit', fontSize:'12px', color:'inherit', textAlign:'center',
+                        background:'transparent', border:'1px solid '+(n[2]>n[3]? 'var(--px-crit, #E5484D)' : 'var(--line, rgba(140,160,155,.4))')}}>
+                      <div style=${{fontWeight:600}}>${n[0].replace(' (24Q/26Q)','')}</div><div style=${{fontSize:'11px', color:n[2]>n[3]? 'var(--px-crit, #E5484D)' : 'var(--px-pos, #3FB68B)'}}>${n[2]>n[3]? (n[2]-n[3])+' of '+n[2]+' not ready' : 'Ready'}</div></button>`)}</div>`; })}</div>
+              <p class="sub" style=${{margin:'6px 0 0'}}>Red = returns not ready · click a filing for each entity's status, the legal cost and Chase.</p>`; })()}</${C.Card}></div>
+
+        <div style=${{gridColumn:'1 / -1'}}><${C.Card} k="k-violet" icon="Scale" title="Regulatory changes"><p style=${{margin:'0 0 8px', fontWeight:600}}>${REG.length} changes tracked; ${REG.filter(r=> r.ex).length} needs an impact assessment</p>
+          <div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Change</th><th>Effective</th><th>Status</th><th><span class="sr">Action</span></th></tr></thead>
+            <tbody>${REG.map(r=> html`<tr key=${r.id}><td style=${{whiteSpace:'normal', minWidth:'220px'}}>${r.title}<div class="sub" title=${r.src+' · '+r.impact}>${r.id}</div></td><td>${r.eff}</td>
+              <td>${r.ex? html`<${C.Pill} tone="r">${r.status}</${C.Pill}>` : html`<${C.Pill} tone="g">${r.status}</${C.Pill}>`}</td><td class="r">${C.decide(r.ex)}</td></tr>`)}</tbody></table></div></${C.Card}></div>
+      </div>
+      ${(()=>{ const n = op && D.filings.next.find(x=> x[0]+x[1]===op), E = n && D.filings.ent[n[0]]; if(!E) return null; const close = ()=> setOp(null);
+        return ReactDOM.createPortal(html`<div class="scrim" onClick=${close}></div><aside class="drawer" role="dialog" aria-modal="true" aria-label=${n[0]+' due '+n[1]} onKeyDown=${(e)=> e.key==='Escape' && close()}>
+          <div class="drawer-h"><button class="drawer-x" aria-label="Close" onClick=${close} ref=${(el)=> el && el.focus()}>×</button>
+            <div class="meta"><span class="tw-tag">CMP</span><span>Statutory filing</span><span>CTL-CMP-018</span><span>${n[3]===n[2]? 'Ready' : 'Not ready'}</span></div>
+            <h2>${n[0]}, due ${n[1]}</h2><div class="subj">${n[5] || 'All returns ready'}</div></div>
+          <div class="drawer-b">
+            <section><div class="impact">${[[n[3]+' of '+n[2], 'Returns ready'], [n[1], 'Legal due date ('+E.cut+' internal)'], [n[4], 'Owner']].map(c=> html`<div key=${c[1]}><div class="v">${c[0]}</div><div class="l">${c[1]}</div></div>`)}</div></section>
+            <section><h3>Timeline</h3><${FilingDetail} n=${n} E=${E} ch=${ch} chaseEnt=${chaseEnt} part="strip"/></section>
+            <section><h3>By entity</h3><${FilingDetail} n=${n} E=${E} ch=${ch} chaseEnt=${chaseEnt} part="table"/></section>
+            <section><h3>If filed late</h3><div style=${{fontSize:'13.5px'}}>${E.law}.</div></section>
+          </div>
+          <div class="drawer-f"><div class="btn-row">${n[2]>n[3]? (ch[op]? html`<span class="faint" style=${{fontSize:'13px'}}>Reminder sent to ${n[4]} today.</span>` : html`<button type="button" class="btn" onClick=${()=> chase(n)}>Chase all ${n[2]-n[3]} not ready</button>`) : html`<span class="faint" style=${{fontSize:'13px'}}>All returns ready; nothing to chase.</span>`}<button type="button" class="btn ghost" onClick=${close}>Close</button></div></div></aside>`, document.body); })()}
+</${Fold}>`; };
+  /* contract compliance: contracts as the authority behind a payment or commitment (register stays with Legal / Procurement) */
+  const ConSec = ({ open })=>{ const K = D.contracts, kpi = (label)=> C._open && C._open({ kind:'KPI', label, def:C.DEF[label], value:'' });
+    const tile = (t, v, sub, tone, go)=> html`<button type="button" onClick=${go} style=${{textAlign:'left', padding:'12px', borderRadius:'10px', cursor:'pointer', color:'inherit', font:'inherit', background:'var(--well, transparent)', border:'1px solid var(--card-line, var(--px-line))'}}>
+      <div style=${{fontWeight:600}}>${t}</div><div class="num" style=${{fontSize:'22px', fontWeight:700, margin:'6px 0 2px', color:tone==='r'? 'var(--px-crit)' : tone==='a'? 'var(--px-high)' : 'inherit'}}>${v}</div><div class="sub">${sub}</div></button>`;
+    const P = K.rpt.parties, nova = P.find(x=> x[9]);
+    return html`<${Fold} id="sec-con" sec=${(o, tg, kids)=> html`<${C.Sec} c="vendor" icon="FileText" title="Contract compliance" sub="Valid contract, right signatory, approved related party, agreed price." right=${tg}>${kids}</${C.Sec}>`}>
+      <div class="px-hero3-g" style=${{gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', marginBottom:'16px'}}>
+        <${C.RCard} k="k-amber" title="Related-party transactions" icon="Users" basis="FY27, Apr–Sep" value="1 to ratify" tone="crit" chip=${html`<${C.Pill} tone="r">1 of 6 not approved</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Related parties by approval status" parts=${[{ l:'Within approval', v:4, c:'var(--px-pos)' }, { l:'Near limit', v:1, c:'var(--px-medium)' }, { l:'Not approved', v:1, c:'var(--px-crit)' }]}/>`}
+          note="Nova to ratify by 17-Nov; SP Agro at 94% of its limit." foot=${[['Related parties', '6'], ['Not approved', '1', 'r'], ['Near limit', '1', 'a']]}/>
+        <${C.RCard} k="k-amber" title="Payments against a valid contract" icon="FileText" basis="Q2 FY27" value=${pc(C.con.expRate,2)} chip=${html`<${C.Pill} tone=${tgt(C.con.expRate,99)}>Target 99%</${C.Pill}>`}
+          viz=${html`<${Bullet} v=${C.con.expRate} target=${99} col=${tcol(C.con.expRate,99)} label="Payments against a valid contract"/>`}
+          note="Within target; 4 vendors paid after expiry or with no contract." foot=${[['Payments', FCT.n(K.exp.paid)], ['Without a contract', C.con.expN, 'a'], ['Vendors', '4']]}/>
+        <${C.RCard} k="k-amber" title="Contracts within delegation of authority" icon="Lock" basis="Q2 FY27" value=${pc(C.con.doaRate,2)} chip=${html`<${C.Pill} tone=${tgt(C.con.doaRate,98)}>Target 98%</${C.Pill}>`}
+          viz=${html`<${Bullet} v=${C.con.doaRate} target=${98} col=${tcol(C.con.doaRate,98)} label="Contracts within delegation of authority"/>`}
+          note="Within target; the 2 exceptions are not yet ratified." foot=${[['Signed', K.doa.signed], ['Above authority', K.doa.ex.length, 'a'], ['Ratified', '0 of 2', 'r']]}/>
+        <${C.RCard} k="k-amber" title="Invoice price within contract" icon="Scale" basis="Sep-26" value="94.83%" tone="crit" chip=${html`<${C.Pill} tone="r">Target 98%</${C.Pill}>`} pick=${()=> open({ kind:'Control', label:'CTL-P2P-017', id:'CTL-P2P-017' })}
+          viz=${html`<${Bullet} v=${94.83} target=${98} col="var(--px-crit)" label="Invoice price within contract"/>`}
+          note="Billed more than 2% above the contract price." foot=${[['Contracted lines', '8,760'], ['Above contract', '453', 'r'], ['Status', 'Failing', 'r']]}/>
+      </div>
+      <div role="alert" style=${{display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'8px', border:'1px solid var(--px-crit, #E5484D)', borderLeftWidth:'4px'}}>
+        <b style=${{color:'var(--px-crit, #E5484D)'}}>Act now</b><span style=${{flex:1}}>Nova Packaging (related party since 18-Aug): 4 of 4 POs at IN-03 without Audit Committee approval; ratify by 17-Nov.</span>${C.decide(nova[9])}</div>
+      <p class="sub" style=${{margin:'8px 0 0'}}>Open a tile for its register: related parties, payments without a valid contract, contracts signed above authority.</p>
+      </${Fold}>`; };
+  /* section that folds; remembers the reader's choice */
+  const Fold = ({ id, children, sec })=>{ const [o, setO] = React.useState(()=>{ try{ return localStorage.getItem('cmp-fold-'+id)!=='0'; }catch(e){ return true; } });
+    const t = ()=>{ const v = !o; setO(v); try{ localStorage.setItem('cmp-fold-'+id, v? '1' : '0'); }catch(e){} };
+    return html`<div id=${id} style=${{scrollMarginTop:'70px'}}>${sec(o, html`<button type="button" class="btn sm ghost" aria-expanded=${o} onClick=${t}>${o? 'Collapse' : 'Expand'}</button>`, o? children : null)}</div>`; };
+  const go = (id)=>{ const el = document.getElementById(id); el && el.scrollIntoView({ behavior:'smooth', block:'start' }); };
+  const JumpBar = ()=> html`<nav aria-label="Sections on this page" style=${{display:'flex', flexWrap:'wrap', alignItems:'baseline', gap:'6px 18px', margin:'0 0 14px', fontSize:'12.5px'}}>
+    <span class="faint">On this page</span>
+    ${[['sec-sum','What is broken?',null],['sec-where','Controls by process','10 in P2P'],['sec-fail','Failing controls','16'],['sec-reg','Regulatory compliance',C.fil.notReady+' not ready'],['sec-con','Contract compliance','1 to ratify']].map(([id,l,b])=> html`<a key=${id} href=${'#'+id} onClick=${(e)=>{ e.preventDefault(); go(id); }}
+      style=${{color:'inherit', textDecoration:'none', fontWeight:600, borderBottom:'1px dotted currentColor'}}>${l}${b && html`<span style=${{marginLeft:'5px', fontWeight:500, color:'var(--px-crit, #E5484D)'}}>${b}</span>`}</a>`)}</nav>`;
+  /* 2 + 3. failing controls: 5 most severe first, and a By entity view in the same card */
+  const FailSec = ({ open })=>{ const [all, setAll] = React.useState(false), rows = all? FAIL : FAIL.slice(0,5);
+    return html`<${C.Sec} c="exc" icon="TriangleAlert" title="Failing controls" sub="Most severe first. Click a row for the control, Decide for its case."
+      right=${html`<${C.Pill} tone="r">16 of 412</${C.Pill}>`}>
+      ${html`<section class="px-kc px-exc"><div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Severity</th><th>Control</th><th>Process</th><th>Entity</th><th>Test result</th><th><span class="sr">Action</span></th></tr></thead>
+        <tbody>${rows.map(r=> html`<tr key=${r[0]} class="sel" tabIndex="0" onClick=${()=> open({ kind:'Control', label:r[0], id:r[0] })} onKeyDown=${(e)=>{ if(e.key==='Enter') open({ kind:'Control', label:r[0], id:r[0] }); }}>
+          <td><${C.Pill} tone=${r[4]==='critical'||r[4]==='high'? 'r' : r[4]==='medium'? 'a' : 'n'}>${r[4][0].toUpperCase()+r[4].slice(1)}</${C.Pill}></td><td>${r[1]}<div class="sub">${r[0]}</div></td><td>${r[3]}</td><td>${r[2]}</td><td>${r[5]}</td><td class="r">${C.towerBtn(r[0], r[2])}${C.decide(r[6])}</td></tr>`)}</tbody></table></div>
+        <div style=${{display:'flex', justifyContent:'center', marginTop:'8px'}}><button type="button" class="btn sm ghost" onClick=${()=> setAll(!all)}>${all? 'Show the 5 most severe' : 'Show all 16 failing controls'}</button></div></section>`}</${C.Sec}>`; };
+  const WhereSec = ({ open })=> html`<${C.Sec} c="spend" icon="Layers" title="Controls by process" sub="P2P holds 10 of the 16 failing controls; the heatmap shows each one at every entity."
+      right=${html`<${C.Pill} tone="r">10 of 16 in P2P</${C.Pill}>`}>
+      <div class="px-brow" style=${{gridTemplateColumns:'1fr'}}>
+        <${C.Card} k="k-green" icon="Layers" title="Controls by process: passing and failing">
+          <${P.ChartBox} height=${170} label="Controls by process, passing and failing" table=${P.mini(['Process','Total','Failing'], proc.map(p=>[p.p, p.total, p.failing]))}>
+            <${R.BarChart} layout="vertical" data=${proc.map(p=>({ n:p.p, pass:p.total-p.failing, fail:p.failing }))} margin=${{top:4,right:24,left:0,bottom:4}}>
+              <${R.CartesianGrid} horizontal=${false} stroke="var(--px-grid)"/><${R.XAxis} type="number" ...${C.axis}/><${R.YAxis} type="category" dataKey="n" width=${96} ...${C.axis}/>
+              <${R.Tooltip} content=${C.Tip((v)=> v+' controls')}/>
+              <${R.Bar} dataKey="pass" name="Controls passing" stackId="a" fill=${COL.pos} isAnimationActive=${false}/><${R.Bar} dataKey="fail" name="Controls failing" stackId="a" fill=${COL.crit} radius=${[0,3,3,0]} isAnimationActive=${false}/>
+            </${R.BarChart}></${P.ChartBox}>
+          <${C.Legend} items=${[['Passing', COL.pos], ['Failing', COL.crit]]}/></${C.Card}>
+        <${C.Card} k="k-green" icon="Layers" title="Failing controls by entity, pass rate Sep-26"><div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Control</th>${ENTS.map(e=> html`<th key=${e} class="r">${e}</th>`)}</tr></thead>
+            <tbody>${Object.keys(BYENT).sort((a,b)=> worst(a)-worst(b)).map(id=> html`<tr key=${id} class="sel" onClick=${()=> open(Object.assign({ kind:'Control', label:id }, { id }))}><td>${cname(id)}<div class="sub">${id}${id==='CTL-CMP-003'? ' · % of payments with no SoD conflict; at IN-03, 1 of 23 went through a used conflict' : ''}</div></td>
+              ${BYENT[id].map((v,i)=> html`<td key=${i} class="r num" style=${{ background: v==null? 'transparent' : v>=99? 'color-mix(in srgb, var(--px-pos) 22%, transparent)' : v>=97? 'color-mix(in srgb, var(--px-medium) 22%, transparent)' : v>=94? 'color-mix(in srgb, var(--px-high) 26%, transparent)' : 'color-mix(in srgb, var(--px-crit) 30%, transparent)' }}>${v==null? '—' : pc(v,1)}</td>`)}</tr>`)}</tbody></table></div>
+          <${C.Legend} items=${[['99% and above', 'var(--px-pos)'], ['97–98.9%', 'var(--px-medium)'], ['94–96.9%', 'var(--px-high)'], ['Below 94%', 'var(--px-crit)'], ['— not in scope', 'var(--px-fade)']]}/></${C.Card}>
+      </div></${C.Sec}>`;
+  const Board = ({ open })=> html`
+    <${JumpBar}/>
+    <div id="sec-sum" style=${{scrollMarginTop:'70px'}}>
+    <${C.Sec} c="ctl" icon="ShieldCheck" title="What is broken?" sub="396 of 412 controls passed their latest test; 14 of the 16 failures are key controls."
+      right=${html`<${C.Pill} tone="r">16 of 412 failing, 5 towers</${C.Pill}><${C.Pill} tone="a">14 of 16 are key</${C.Pill}>`}>
+      <div class="px-hero3-g" style=${{gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))'}}>
+        <${C.RCard} k="k-green" title="Failing controls" icon="TriangleAlert" basis="Latest test" value="16" tone="crit" chip=${html`<${C.Pill} tone="r">14 of 16 key</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Failing controls by process" parts=${proc.map((p,i)=> ({ l:p.p, v:p.failing, c:P.CAT_COL[i] }))}/>`}
+          note="14 of the 16 are key controls the auditor relies on." foot=${[['Pass rate', pc(396/412*100,2)], ['Live tests (P2P)', '10'], ['Baseline (other towers)', '6']]}/>
+        <${C.RCard} k="k-green" title="Key-control effectiveness" icon="Lock" basis="Latest test" value=${pc(keyEff,1)} tone="crit" chip=${html`<${C.Pill} tone="r">Target 98%</${C.Pill}>`}
+          viz=${html`<${Bullet} v=${keyEff} target=${98} col="var(--px-crit)" label="Key controls"/>`}
+          note="Each failing key control is retested by the auditor." foot=${[['Key controls', '138'], ['Passing', '124'], ['Failing', '14', 'r']]}/>
+        <${C.RCard} k="k-blue" title="Automation" icon="Wrench" basis="Library" value=${pc(251/412*100,0)} chip=${html`<${C.Pill}>251 of 412</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Automated controls by process" parts=${proc.map((p,i)=> ({ l:p.p, v:p.auto, c:P.CAT_COL[i] }))}/>`}
+          note="Compliance is least automated: 18 of 50." foot=${[['Automated', '251'], ['Manual', '161'], ['Lowest', 'CMP 36%', 'a']]}/>
+        <${C.RCard} k="k-amber" title="Policy compliance" icon="Scale" basis="Sep-26" value=${pc(94.93,2)} tone="crit" chip=${html`<${C.Pill} tone="r">Target 97%</${C.Pill}>`}
+          viz=${html`<${Bullet} v=${94.93} target=${97} col="var(--px-medium)" label="Policy compliance"/>`}
+          note="P2P is the most critical tower at 93.77%." foot=${[['Checks', '56,484'], ['Violations', '2,863', 'r'], ['P2P live', '93.77%', 'r']]}/>
+        <${C.RCard} k="k-violet" title="Regulatory filings" icon="Landmark" basis="Q2 FY27" value=${pc(C.fil.rate,1)} chip=${html`<${C.Pill} tone="g">Target ${D.filings.target}%</${C.Pill}>`}
+          viz=${html`<${Bullet} v=${C.fil.rate} target=${D.filings.target} col="var(--px-pos)" label="Filings made on time"/>`}
+          note=${C.fil.notReady+' of '+C.fil.next+' filings due by 04-Nov are not ready.'}
+          foot=${[['Due Q2', C.fil.due], ['Late', C.fil.late, 'a'], ['Next 30 days', C.fil.next]]}/>
+      </div></${C.Sec}>
+    </div>
+    <div id="sec-where" style=${{scrollMarginTop:'70px'}}><${WhereSec} open=${open}/></div>
+    <div id="sec-fail" style=${{scrollMarginTop:'70px'}}><${FailSec} open=${open}/></div>
+    <${RegSec}/>
+    <${ConSec} open=${open}/>
+    `;
+
+  /* control profile → entity */
+  const Detail = ({ path, open })=>{
+    const top = path[0], r = D.failing.find(x=> x[0]===top.id) || [top.id, top.id, '', 'P2P', 'low', 'Passing in the latest test', '', true], be = BYENT[top.id];
+    const ent = path[1];
+    if(ent){ const v = D.ent[ent.label] || null, i = D.focus.indexOf(ent.label);
+      return html`<${C.Sec} c="vendor" icon="Building2" title=${ent.label+' '+(D.entName[ent.label]||'')} sub=${'How '+top.id+' tested at '+ent.label+', Sep-26, and what else is open there.'}>
+        <div class="px-brow"><${C.Card} k="k-amber" icon="ShieldCheck" title=${top.id+' at '+ent.label}>
+          <div class="px-split">${[['Pass rate', be && i>=0? pc(be[i],2) : 'N/A'], ['Failing controls here', v? v[2] : '—']].map(([l,x])=> html`<div key=${l}><span>${l}</span><b class="num">${x}</b></div>`)}</div>
+          <${C.AI}>${be && i>=0? top.id+' passed '+pc(be[i],2)+' of September tests at '+ent.label+'.' : 'No September tests at this entity.'} Open the entity profile for the full picture.</${C.AI}>
+          <a class="btn sm" href=${'entities.html#'+ent.label}>Open entity profile</a> ${C.towerBtn(top.id, ent.label)}</${C.Card}>
+        <${C.Card} k="k-amber" icon="ListChecks" title=${'How '+ent.label+' compares with the other entities'}>${v? html`<${C.EntFigures} e=${ent.label}/>` : html`<${P.Empty}/>`}</${C.Card}></div></${C.Sec}>`; }
+    return html`<${C.Sec} c="ctl" icon="ShieldCheck" title=${r[1]} sub=${r[0]+' · '+r[3]+' · '+(r[7]? 'Key control' : 'Non-key control')+' · latest test Sep-26'}
+      right=${html`${C.sev(r[4])}${C.towerBtn(r[0], r[2])}${r[6] && C.decide(r[6])}`}>
+      <div class="px-brow">
+        <${C.Card} k="k-green" icon="Info" title="Why this control surfaced">
+          <${C.AI}>${r[5]}.</${C.AI}>
+          <div class="px-tbl"><table class="t px-t dense"><tbody>
+            ${[['Control', r[0]], ['Process', r[3]], ['Worst entity', r[2]], ['Key control', r[7]? 'Yes, the auditor relies on it' : 'No'], ['Fixed by', r[6] || 'Owner action (no case)'], ['Evidence the auditor needs', '40 samples with the test record (Evidence pack)']].map(([l,x])=> html`<tr key=${l}><td>${l}</td><td>${x}</td></tr>`)}</tbody></table></div></${C.Card}>
+        <${C.Card} k="k-green" icon="Building2" title="Pass rate by entity, Sep-26">
+          ${be? html`<${P.BarList} label="Pass rate by entity" rows=${ENTS.map((e,i)=> ({ key:e, label:e, val:be[i]==null? 0 : be[i], sub:be[i]==null? 'Not in scope' : (be[i]<97? 'Below 97%' : '97% or above') }))} max=${100} fmt=${(v)=> pc(v,2)}
+              onSelect=${(row)=> row.key!=='Other 5' && open({ kind:'Entity', label:row.key })} onOpen=${(row)=> row.key!=='Other 5' && open({ kind:'Entity', label:row.key })}/>
+            <${C.AI}>Click an entity to drill in.</${C.AI}>` : html`<div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Entity</th><th>Test result (baseline)</th></tr></thead><tbody><tr class="sel" onClick=${()=> open({ kind:'Entity', label:r[2] })}><td>${r[2]} ${D.entName[r[2]]||''}</td><td>${r[5]}</td></tr></tbody></table></div><${C.AI}>Baseline control tested at one entity. Click it to drill in.</${C.AI}>`}</${C.Card}>
+      </div></${C.Sec}>`;
+  };
+  C.page({ tab:'story', step:'2', accent:'k-green', root:{ kind:'Compliance', label:'Controls', icon:'ShieldCheck' }, Board, Detail });
+})();
+</script>
+</body>
+</html>

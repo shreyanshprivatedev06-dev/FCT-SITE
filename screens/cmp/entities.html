@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entity profiles | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../assets/js/cmp/cmp-preview.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+<!-- MapLibre GL 5.6.0 (BSD-3) draws the full-width map stage; the base map style comes from CARTO -->
+<link rel="stylesheet" href="../../assets/vendor/maplibre/maplibre-gl.css">
+<script src="../../assets/vendor/maplibre/maplibre-gl.js"></script>
+<script src="../../assets/js/cmp/cmp-geo.js"></script>
+<script src="../../assets/js/map/map-card.js"></script>
+<script src="../../assets/js/portfolio/portfolio.js"></script>
+</head>
+<body class="px-full" data-page="cmp/entities" data-root="../../">
+<script>try{ if((localStorage.getItem("fct-p2p-theme")||"dark")==="light") document.body.classList.add("theme-light"); }catch(e){}</script>
+<div id="app"><p style="padding:24px">Loading Entity profiles…</p></div>
+<script>
+/* DESIGN PREVIEW of Compliance screen 6: Entity profiles, "Which entities need attention, and why?" */
+(function(){
+  const P = P2P, html = P.html, R = P.R, COL = P.COL, FCT = window.FCT, C = CMPV, D = C.D, { pc, cr } = C;
+  const E = Object.keys(D.ent).map(e=>{ const v = D.ent[e], items = C.entOpen(e), n = (t)=> items.filter(it=> it.type===t).length;
+    const cs = items.filter(it=> it.type==='Case'), big = cs.filter(it=> it.money).sort((a,b)=> b.money-a.money)[0];
+    v[13] = cs.length; v[14] = big? big.money : 0;   /* the Compliance-cases figure is the list itself, so profile, table and strips agree */
+    return { e, name:D.entName[e], pass:v[1], fail:v[2], anm:v[10], sod:v[11], fnd:n('Finding'), cases:cs.length, miss:items.filter(it=> it.type==='Missing evidence').reduce((t,it)=> t+it.n, 0), sodUsed:D.sod.some(s=> s[4] && s[2].indexOf(e)>=0),
+      big:big && big.money, bigTxt:big && big.amt, items, late:C.lateAt(e), v, focus:D.focus.includes(e) }; });
+  const { useState, useEffect } = React;
+  const openN = (x)=> x.items.reduce((t,it)=> t+(it.n||1), 0);   /* same list as the profile; late filings are history, not open */
+  const anmOpen = (x)=> x.items.filter(it=> it.type==='Anomaly').length, cex = (x)=> x.items.filter(it=> it.type==='Contract exception').length;
+  const and = (a, sep)=> a.length<2? a.join('') : a.slice(0,-1).join(sep||', ')+(sep? sep : ' and ')+a[a.length-1];
+  const SEVO = { critical:0, high:1, medium:2, low:3 };
+  const FOCUS = html`<span title="Focus entity: named in the Compliance story focus list for this review"><${C.Pill} tone="n">Focus</${C.Pill}></span>`;
+  const Sev = ({ s })=> html`<span style=${{display:'inline-block', padding:'1px 7px', borderRadius:'10px', fontSize:'11px', fontWeight:650,
+    background:s==='critical'? 'var(--px-crit)' : s==='high'? 'color-mix(in srgb, var(--px-high) 22%, transparent)' : 'color-mix(in srgb, var(--px-ink) 10%, transparent)', color:s==='critical'? '#fff' : 'var(--px-ink)'}}>${s}</span>`;
+  const Acts = ({ it, e, ch, chase })=>{ const L = null, go = null,   /* cross-tower links removed until tower data is consistent */ stop = (f)=> (ev)=>{ ev.stopPropagation(); f(); };
+    const main = it.decide? html`<button type="button" class="btn sm cmp-decide" onClick=${stop(()=> FCT.openDrawer(it.decide))}>Decide</button>`
+      : it.review? html`<a class="btn sm primary" href="investigation.html" onClick=${(ev)=> ev.stopPropagation()}>Review</a>`
+      : it.owner? (ch[it.ref]? html`<${C.Pill} tone="g">Chased today</${C.Pill}>` : html`<button type="button" class="btn sm primary" onClick=${stop(()=> chase(it))}>Chase</button>`)
+      : go? html`<button type="button" class="btn sm primary" title=${'Opens '+L.tower+': '+L.what+', filtered to '+e} onClick=${go}>View control in ${L.tower} ↗</button>` : null;
+    return html`<span style=${{display:'inline-flex', gap:'10px', alignItems:'center', justifyContent:'flex-end'}}>${main}${go && (it.decide || it.review || it.owner)? html`<a href="#" class="cmp-tl" title=${'Opens '+L.tower+': '+L.what+', filtered to '+e} onClick=${go}>${L.tower} ↗</a>` : null}</span>`; };
+  /* long detail text: two lines, the rest behind More */
+  const More = ({ t })=>{ const [o, setO] = useState(false), long = String(t||'').length > 95;
+    return html`<span><span style=${o || !long? null : {display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>${t}</span>${long && html`<button type="button" class="cmp-tl" style=${{border:0, background:'transparent', padding:0, cursor:'pointer', font:'inherit', fontSize:'12px'}} onClick=${(ev)=>{ ev.stopPropagation(); setO(!o); }}>${o? 'Less' : 'More'}</button>`}</span>`; };
+  const useChase = ()=>{ const [ch, setCh] = useState({});
+    return [ch, (it)=>{ setCh((p)=> Object.assign({}, p, { [it.ref]:1 })); FCT.ui && FCT.ui.toast && FCT.ui.toast('Reminder sent to '+it.owner+' for '+it.ref+' (simulated)'); }]; };
+
+  /* the page body is the shared portfolio (assets/js/portfolio/portfolio.js), as on every tower's profile screen. Compliance counts:
+     the value is open items, never an amount; the one amount shown is the largest open case, which is never added to another. */
+  const ENT = {}; ((window.FCT_DATA||{}).entities||[]).forEach(x=> ENT[x.id] = x);
+  const REGIONS = ['North India','West India','South India','North America','Europe'], SEGS = ['Manufacturing','Services and trading','Overseas sales'].map(id=> ({ id, label:id }));
+  const RISKS = ['Critical','High','Medium','Low'], BAND = { Critical:[75,99], High:[55,74], Medium:[30,54], Low:[0,29] }, GRISK = { crit:'Critical', ctl:'High', evd:'Medium', watch:'Medium', clear:'Low' };
+  const RISKDEF = { Critical:'A critical case is open', High:'An access conflict, an open finding or a failing control', Medium:'Missing evidence or other open items', Low:'Nothing open' };
+  const cap = (t)=> t? t[0].toUpperCase()+t.slice(1) : t;
+  const RK = {}; E.forEach(x=>{ const cs = x.items.filter(it=> it.type==='Case'), n = (s2)=> cs.filter(c=> c.sev===s2).length, cat = GRISK[C.entGroup(x)[0]] || 'Low', b = BAND[cat];
+    const raw = 30*n('critical') + 18*n('high') + 8*n('medium') + 3*n('low') + (x.sodUsed? 8 : 0) + 4*x.fnd + 2*x.fail + x.miss + 2*anmOpen(x) + 2*x.late.length + 2*cex(x);
+    RK[x.e] = { cat, score:Math.max(b[0], Math.min(b[1], b[0] + Math.round(raw/4))), why: cat==='Low' && !x.items.length? 'Nothing open' : cap(C.entWhy(x)) }; });
+  const TW = [['P2P','Procure to pay'],['O2C','Order to cash'],['R2R','Record to report'],['SC','Supply chain'],['CMP','Compliance']];
+  const towerOf = (it)=>{ if(it.type==='Case'){ const t = (FCT.ex(it.ref)||{}).tower; return t==='SCM'? 'SC' : TW.some(w=> w[0]===t)? t : 'CMP'; }
+    const s2 = (it.link||'')+' '+it.ref; return /P2P|PTP/.test(s2)? 'P2P' : /O2C|CL-OVR/.test(s2)? 'O2C' : /R2R|RTR|JE-|GL \d/.test(s2)? 'R2R' : /SC-|CTL-SC|CNT-/.test(s2)? 'SC' : 'CMP'; };
+  const lateIts = (x)=> x.late.map(l=> ({ type:'Late filing', ref:l[0], title:l[1]+' '+l[2]+' filed '+l[6]+' days late', detail:l[7] }));
+  const allIts = (x)=> x.items.concat(lateIts(x));
+  const W = {}; const wrap = (x)=>{ const m = ENT[x.e]||{}, st = m.site||{}; return W[x.e] || (W[x.e] = { id:x.e, name:x.name, region:m.region, seg:m.cls, x,
+    geo: st.lat!=null? { city:st.city, region:m.region, lat:st.lat, lng:st.lng } : null }); };
+  const inScope = (fs)=>{ const rs = !fs.pRisk || fs.pRisk==='All'? null : fs.pRisk.split(',');
+    return E.filter(x=>{ const m = ENT[x.e]||{}; return (!rs || rs.includes(RK[x.e].cat)) && (!fs.pGeo || fs.pGeo==='All' || m.region===fs.pGeo) && (!fs.pSeg || fs.pSeg==='All' || m.cls===fs.pSeg); }); };
+  const per = (fs, f)=>{ const o = {}; inScope(fs).forEach(x=>{ const v = f(x); if(v) o[x.e] = v; }); return o; };
+  const THEMES = [
+    { id:'case', name:'Open cases', codes:['Case'], why:'Investigations open at the entity, each decided through its own case' },
+    { id:'anm', name:'Anomalies without a case', codes:['Anomaly'], why:'Scored 80+ by the anomaly model and not yet triaged into a case' },
+    { id:'ctl', name:'Failing controls', codes:['Failing control'], why:'Controls below target at the entity where they are worst' },
+    { id:'fnd', name:'Findings and access conflicts', codes:['Finding','Access conflict'], why:'Audit findings still open, and users who can both raise and approve' },
+    { id:'con', name:'Contract exceptions', codes:['Contract exception'], why:'Paid without a valid contract, related parties without approval, or signed above authority' },
+    { id:'evd', name:'Missing evidence', codes:['Missing evidence'], why:'Evidence the audit pack still needs from the entity' },
+    { id:'late', name:'Filings made late, Q2', codes:['Late filing'], why:'Statutory returns and payments already made, after the due date' } ];
+  const caseItem = (id)=>{ for(const x of E){ const it = x.items.find(i=> i.type==='Case' && i.ref===id); if(it) return { x, it }; } return null; };
+  const sevName = (s2)=> cap(s2||''), plain = (t)=> String(t==null? '' : t).replace(/<[^>]+>/g, '');
+  const ISSUE = { Case:'Open case', Anomaly:'Anomaly score 80+, no case', 'Failing control':'Below target', Finding:'Audit finding', 'Access conflict':'Can raise and approve',
+    'Contract exception':'Contract or authority breach', 'Missing evidence':'Evidence not yet received', 'Late filing':'Filed after the due date' };
+  /* one Compliance case with its full context, and the decision first (same panel as the tower case views) */
+  const CmpCase = ({ id, onRec })=>{ const x = FCT.ex(id), ci = caseItem(id); if(!x) return html`<${P.Empty} text="Case not found."/>`;
+    const ev = x.evidence||{}, open = FCT.isOpen(x), money = x.impact && x.impact.short, e = x.entity, tw = towerOf({ type:'Case', ref:id });
+    const fs2 = [['At stake', money || 'Not quantified', (x.impact||{}).label || 'Per case; never added to others'], ['Severity', sevName(x.severity), 'Priority '+x.priority], ['Due', x.due||'—', 'Owner '+C.who(x.owner)], ['Raised by', tw==='CMP'? 'Compliance' : tw, (x.also||[]).length? 'Also '+x.also.join(', ') : 'One tower']];
+    return html`<div class="cmp-case">
+      <section class=${'px-case-h '+(P.kc? P.kc('exposure') : '')}><span class="ic"><${P.Icon} n="Crosshair" size=${22} strokeWidth=${1.6}/></span>
+        <div class="tt"><div class="k">Case ${id}</div><h2>${x.title}</h2><div class="m"><span class=${'px-cst s-'+(open? 'open' : 'prevented')}>${open? 'Open' : 'Decided'}</span><span class="px-pill">${x.subject||''}</span>
+          ${e && html`<button type="button" class="px-link sm" onClick=${()=> onRec(e)}>${e} ${D.entName[e]||''}</button>`}</div></div>
+        <dl class="px-case-f">${fs2.map(([l,v,s2])=> html`<div key=${l}><dt>${l}</dt><dd>${v}</dd><small>${s2}</small></div>`)}</dl></section>
+      <section class=${'px-dec'+(open? ' need' : '')} aria-label="Decision">
+        <div class="px-dec-h"><span class="px-dec-st">${open? 'Decision needed' : 'Decided'}</span><span class="faint">Owner ${C.who(x.owner)}${x.due? ' · due '+x.due : ''}</span></div>
+        <div class="px-dec-b"><div class="px-dec-r"><span class="l">Recommended</span><p>${x.ai? x.ai.text : x.takeLabel || 'Review and record the outcome.'}</p>
+            <dl><div><dt>At stake</dt><dd>${money || 'Not quantified'}</dd></div>${x.ai && x.ai.confidence!=null && html`<div><dt>Confidence</dt><dd>${Math.round(x.ai.confidence*100)}%</dd></div>`}<div><dt>Raised at</dt><dd>${e||'Group'}</dd></div></dl>
+            ${x.gate && html`<p class="faint" style=${{margin:'8px 0 0', fontSize:'12px'}}><b>Who can decide.</b> ${x.gate}</p>`}</div>
+          <div class="px-dec-a"><${P.Decide} id=${id}/>
+            <small class="faint">Decided through the shared decision drawer, so the gate and audit trail stay in one place.</small></div></div></section>
+      ${x.trigger && html`<${C.AI}>${plain(x.trigger)}.</${C.AI}>`}
+      <div class="px-case-g"><div class="px-col">
+        <${C.Card} k="k-amber" icon="FileSearch" title="What happened"><p class="px-p">${plain(x.what)}</p>${x.rootCause && html`<p class="px-p"><b>Root cause.</b> ${plain(x.rootCause)}</p>`}
+          ${ev.table && html`<div class="px-tbl"><table class="t px-t dense"><thead><tr>${ev.table.cols.map((c,i)=> html`<th key=${i}>${c}</th>`)}</tr></thead>
+            <tbody>${ev.table.rows.map((r,i)=> html`<tr key=${i}>${r.map((c,j)=> html`<td key=${j} style=${{whiteSpace:'normal'}}>${plain(c)}</td>`)}</tr>`)}</tbody></table></div>`}
+          ${(ev.bullets||[]).length? html`<ul class="px-p">${ev.bullets.map((b,i)=> html`<li key=${i}>${plain(b)}</li>`)}</ul>` : ''}</${C.Card}></div>
+        <div class="px-col">
+          ${(x.chain||[]).length? html`<${C.Card} k="k-amber" icon="GitCommit" title="How it unfolded"><ol class="cmp-chain">${x.chain.map((c,i)=> html`<li key=${i} class=${c[3]? 'ok' : 'bad'}><b>${c[0]}</b> <span class="faint">${c[1]}</span><div>${c[2]}</div></li>`)}</ol>
+            ${x.chainNote && html`<p class="faint" style=${{fontSize:'12px'}}>${x.chainNote}</p>`}</${C.Card}>` : ''}
+          ${(x.towers||[]).length? html`<${C.Card} k="k-amber" icon="Network" title="Towers involved"><ul class="cmp-tw">${x.towers.map(([t,role,href],i)=> html`<li key=${i}><b>${t}</b> ${role}${href && html` <a class="px-link sm" href=${FCT.href(href)}>Open</a>`}</li>`)}</ul></${C.Card}>` : ''}</div></div></div>`; };
+  const T = {
+    mapStage:true, noun:'entity', nounPl:'entities', idLabel:'Entity', profileLabel:'Entity profile', segLabel:'Entity class', caseIdEg:'CMP-RPT-15', processHref:'screens/cmp/controls.html',
+    valName:'Open items', valShort:'open items', valWhen:()=> 'at 05-Oct-2026', valAxis:'(count)', fmtVal:(v)=> FCT.n(Math.round(v)),
+    secName:'Failing controls', secShort:'Failing controls', fmtSec:(v)=> FCT.n(v), exName:'Largest case', fmtRec:(v)=> v? FCT.amt(v) : '',
+    stageUnit:'items', fmtStage:(r)=> C.pl(r.cases,'case'), heatCols:TW.map(([id,name])=> ({ id, short:id==='CMP'? 'Compliance' : id, name })), heatColName:'tower',
+    heatTitle:'Open items by entity and tower', heatSub:'Each cell counts the open items a tower raises at the entity.',
+    riskCats:RISKS, riskDefs:RISKDEF, regions:REGIONS, segs:SEGS, themes:THEMES, caseTheme:{ Case:'case' },
+    recs:(fs)=> inScope(fs).map(wrap), byId:(id)=> E.find(x=> x.e===id) && wrap(E.find(x=> x.e===id)), fkey:(fs)=> JSON.stringify(fs), shortId:(v)=> v.id,
+    val:(fs)=> per(fs, openN), sec:(fs)=> per(fs, (x)=> x.fail), exposure:(fs)=> per(fs, (x)=> x.big||0),
+    risk:(id)=> RK[id], seg:(id)=> (ENT[id]||{}).cls, sub:(v)=> (v.geo? v.geo.city+', ' : '')+v.region+' · '+v.seg,
+    tags:(id)=>{ const x = E.find(y=> y.e===id), g = C.entGroup(x); return [x.focus && ['Focus','n'], g[0]!=='clear' && [g[1], g[0]==='crit'? 'r' : 'a']].filter(Boolean); },
+    stages:(fs, ids)=>{ const xs = inScope(fs); return TW.map(([id,name])=>{ let n = 0, cases = 0; const at = new Set();
+      xs.forEach(x=> x.items.filter(it=> towerOf(it)===id).forEach(it=>{ n += it.n||1; if(it.type==='Case') cases++; at.add(x.e); }));
+      return { id, name, q:'Open items '+name+' raises', n, val:n, cases, nv:[...at].filter(e=> ids.has(e)).length }; }); },
+    issueRecs:(fs)=> inScope(fs).flatMap(x=> allIts(x).map(it=> ({ code:it.type, name:it.title, ent:x.e, id:x.e+'|'+it.ref, val:0 }))),
+    issueName:(c)=> ISSUE[c] || c, recLabel:(id)=> id.split('|')[1],
+    cases:(id)=>{ const x = E.find(y=> y.e===id); return !x? [] : x.items.filter(it=> it.type==='Case').map(it=>{ const ex = FCT.ex(it.ref);
+      return { id:it.ref, type:'Case', typeName:it.title, amount:it.money||0, measure: ex && !FCT.isOpen(ex)? 'closed' : 'potential', stName:sevName(it.sev)+(ex && ex.due? ' · due '+ex.due : ''), age:null, ex:it.decide }; }); },
+    caseInfo:(id)=>{ const x = FCT.ex(id); return x && { typeName:x.title, rec:x.entity, recName:x.entity+' '+(D.entName[x.entity]||'') }; },
+    caseView:(id, h2)=> html`<${CmpCase} key=${id} id=${id} onRec=${h2.onRec}/>`,
+    tower:'cmp', towerName:'CMP', noCaseSum:true, caseLines:()=> [], recCase:(q)=> q.code==='Case'? q.id.split('|')[1] : null,
+    issueKind:(c)=> ({ 'Failing control':'ctl', 'Access conflict':'ctl', 'Contract exception':'ctl', Finding:'ctl', Anomaly:'fin', 'Missing evidence':'ops', 'Late filing':'ops' })[c],
+    factors:(id)=> C.entTowers(id).map(([k,v])=> ({ id:k, name:(k==='Supply chain'? 'SC' : k)+' control failures', v: v==null? null : Math.round(Math.max(0, Math.min(100, (100-v)*10))), why: v==null? 'Not tested' : FCT.pct(v, v%1? 1 : 0)+' of controls pass' })),
+    docView:(id, h2)=>{ const [e, ref] = id.split('|'), x = E.find(y=> y.e===e), it = x && allIts(x).find(i=> i.ref===ref), L = it && it.link && C.LINKS[it.link]; if(!it) return '';
+      return html`<${CACT.ActionBar} key=${id} id=${id} codes=${[it.type]} label=${it.ref} ent=${e+' '+x.name} ex=${it.decide && it.decide!==it.ref? it.decide : null} ctx=${h2 && h2.act} theme=${h2 && h2.theme}/><${C.Card} k="k-amber" icon="FileText" title=${it.type+' · '+it.ref}><p class="px-p"><b>${plain(it.title)}</b></p><p class="px-p">${plain(it.detail)}</p>
+        <div style=${{ display:'flex', gap:'8px', flexWrap:'wrap' }}>${it.decide && html`<${P.Decide} id=${it.decide}/>`}</div></${C.Card}>`; },
+    heat:(fs)=> inScope(fs).filter(x=> x.items.length).map(x=>{ const cells = TW.map(([id])=>{ const n = x.items.filter(it=> towerOf(it)===id).reduce((t,it)=> t+(it.n||1), 0); return { stage:id, val:n, n }; });
+      return { v:x.e, name:x.e+' '+x.name, total:openN(x), cells }; }).sort((a,b)=> b.total-a.total),
+    getScope:(fs)=> fs, setScope:(fs, o)=> Object.assign({}, fs, o) };
+  const CACT = FCTAct.make(P, { tower:'cmp', towerName:'CMP', issue:(c)=> ({ name:c, kind:T.issueKind(c) }) });
+  const PF = FCTPortfolio.make(P, T);
+  const SCOPE0 = { pRisk:'All', pGeo:'All', pSeg:'All' };
+  const Board = ({ open })=>{
+    const [sc, setSc0] = useState(()=>{ try{ return Object.assign({}, SCOPE0, JSON.parse(sessionStorage.getItem('fct-cmp-scope')||'{}')); }catch(e){ return SCOPE0; } });
+    const setSc = (n)=>{ setSc0(n); try{ sessionStorage.setItem('fct-cmp-scope', JSON.stringify(n)); }catch(e){} };
+    const [heat, setHeat] = useState(false);
+    const profile = (e)=>{ const x = E.find(y=> y.e===e); x && open({ kind:'Entity', label:e, x }); };
+    /* a record opens where it lives: its tower screen when linked, else its decision, else the entity profile */
+    const goItem = (id)=>{ const [e, ref] = id.split('|'), x = E.find(y=> y.e===e), it = x && x.items.find(i=> i.ref===ref);
+      if(it && (it.decide || it.type==='Case') && FCT.openDrawer) return FCT.openDrawer(it.decide || it.ref);
+      profile(e); };
+    return html`<div class="vp-page cmp-pf"><${PF.Portfolio} f=${SCOPE0} fs=${sc} setF=${setSc} onProfile=${profile} onDoc=${goItem}/>
+      <${C.Sec} c="ctl" icon="ShieldCheck" title="Control pass rate by tower and entity" sub="P2P is tested live on September transactions; the other towers show their last baseline test."
+        right=${html`<button type="button" class="btn sm ghost" aria-expanded=${heat} onClick=${()=> setHeat(!heat)}>${heat? 'Hide' : 'Show'} tower × entity pass rates</button>`}>
+        ${heat? html`<section class="px-kc k-green"><${C.TowerHeat} onEnt=${profile}/></section>`
+          : html`<p class="faint" style=${{margin:0, fontSize:'12.5px'}}>Lowest cells: Compliance at IN-03 92%; P2P at IN-02 94.1%; R2R at IN-07 95%.</p>`}</${C.Sec}></div>`; };
+
+  const Detail = ({ path })=>{ const x = path[0].x, [ch, chase] = useChase(), actions = (it)=> html`<${Acts} it=${it} e=${x.e} ch=${ch} chase=${chase}/>`, g = C.entGroup(x), site = C.entSite(x.e);
+    const med = (f)=>{ const v = E.map(f).sort((a,b)=> a-b), m = v.length/2; return v.length%2? String(v[Math.floor(m)]) : v[m-1]===v[m]? String(v[m]) : v[m-1]+'–'+v[m]; };
+    const figs = [['Open items', openN],['Open cases',(y)=> y.cases],['Failing controls',(y)=> y.fail],['Missing evidence',(y)=> y.miss]];
+    const its = x.items.slice().sort((a,b)=> (SEVO[a.sev]==null? 9 : SEVO[a.sev])-(SEVO[b.sev]==null? 9 : SEVO[b.sev]) || (b.money||0)-(a.money||0));
+    return html`<${C.Sec} c="vendor" icon="Building2" title=${x.e+' '+x.name} sub=${site.city+', '+site.state+' · Sep-26 and snapshot 05-Oct-2026'}
+      right=${html`<a href="../p2p/desk.html" class="cmp-tl" onClick=${()=>{ try{ const f = JSON.parse(sessionStorage.getItem('fct-p2p-f')||'{}'); f.period = f.period || 'Sep-26'; f.bu = x.e; sessionStorage.setItem('fct-p2p-f', JSON.stringify(f)); }catch(e){} }}>P2P for ${x.e} ↗</a>`}>
+      <section class="px-kc" style=${{cursor:'default', boxShadow:'inset 4px 0 0 '+g[2], paddingLeft:'18px'}}>
+        <div style=${{display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap'}}><span class="px-pill" style=${{background:g[2], color:g[0]==='watch'? '#15211F' : '#fff'}}>${g[1]}</span>${x.focus && FOCUS}
+          ${g[0]==='clear' && html`<span style=${{fontSize:'14px'}}>Nothing open at ${x.e}.</span>`}</div>
+        <div style=${{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'8px', marginTop:'12px'}}>
+          ${figs.map(([l,f])=> html`<div key=${l} style=${{padding:'10px 12px', borderRadius:'8px', border:'1px solid var(--line)'}}><div class="faint" style=${{fontSize:'11.5px'}}>${l}</div>
+            <div class="num" style=${{fontSize:'22px', fontWeight:650}}>${f(x)}</div><div class="faint" style=${{fontSize:'11px'}}>Group median ${med(f)}</div></div>`)}
+          <div style=${{padding:'10px 12px', borderRadius:'8px', border:'1px solid var(--line)'}}><div class="faint" style=${{fontSize:'11.5px'}}>Largest case</div>
+            <div class="num" style=${{fontSize:'22px', fontWeight:650, color:'inherit'}}>${x.big? x.bigTxt : '–'}</div><div class="faint" style=${{fontSize:'11px'}}>One case; never added to others</div></div></div></section>
+      <section class="px-kc px-exc" style=${{marginTop:'16px'}}><div class="px-kc-h"><span class="px-kc-t static"><span>${x.items.length? 'Open at '+x.e+': '+C.pl(openN(x),'item')+(openN(x)!==x.items.length? ' in '+x.items.length+' rows ('+x.miss+' missing evidence items grouped by type)' : '')+', most severe first' : 'Nothing open at '+x.e}</span></span></div>
+        ${x.items.length? html`<div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Type</th><th>Item</th><th>Detail</th><th><span class="sr">Action</span></th></tr></thead>
+          <tbody>${its.map(it=> html`<tr key=${it.type+it.ref}><td style=${{whiteSpace:'nowrap'}}>${it.type}${it.sev? html`<div style=${{marginTop:'3px'}}><${Sev} s=${it.sev}/></div>` : null}</td><td style=${{whiteSpace:'normal', minWidth:'240px'}}>${it.title}<div class="sub">${it.ref}</div></td><td style=${{whiteSpace:'normal', minWidth:'200px'}}><${More} t=${String(it.detail||'').replace(it.sev? new RegExp('^'+it.sev+' · ') : /^$/, '').replace(new RegExp('worst '+x.e+'( and IN-\\d+)? at'), x.e+' at')}/></td><td class="r" style=${{whiteSpace:'nowrap'}}>${actions(it)}</td></tr>`)}</tbody></table></div>`
+          : html`<${C.AI}>No open cases, anomalies 80+, failing controls, findings, access conflicts or missing evidence at ${x.e}.</${C.AI}>`}</section>
+      ${x.late.length? (()=>{ const L = C.lateRows(x.late, true); return html`<section class="px-kc" style=${{marginTop:'16px'}}><div class="px-kc-h"><span class="px-kc-t static"><span>${C.pl(x.late.length,'filing')} made late at ${x.e}, Q2 FY27</span></span></div>
+        <div class="px-tbl"><table class="t px-t dense"><thead><tr>${L.cols.map((c,i)=> html`<th key=${i} class=${C.isNum(L.rows, i)? 'r' : ''}>${c}</th>`)}</tr></thead>
+          <tbody>${L.rows.map((rw,i)=> html`<tr key=${i}>${rw.map((c,j)=> html`<td key=${j} class=${C.isNum(L.rows, j)? 'r num' : ''}>${c}</td>`)}</tr>`)}</tbody></table></div><${C.AI}>${L.note}</${C.AI}></section>`; })() : null}
+      <section class="px-kc" style=${{marginTop:'16px', cursor:'default'}}><div class="px-kc-h"><span class="px-kc-t static"><span>Control pass rate by tower at ${x.e}</span></span></div>
+        ${C.entTowers(x.e).map(([k,v])=>{ const all = E.map(y=> (C.entTowers(y.e).find(t=> t[0]===k)||[])[1]).filter(n=> n!=null).sort((a,b)=> a-b), m = all.length? all[Math.floor(all.length/2)] : null, pos = (n)=> Math.max(0, Math.min(100, (n-90)*10));
+          return html`<div key=${k} style=${{display:'grid', gridTemplateColumns:'170px 1fr 80px', gap:'10px', alignItems:'center', fontSize:'12.5px', margin:'8px 0'}}>
+            <span>${k} <span class="faint">(${C.D.heatSrc[k]})</span></span>
+            <span style=${{position:'relative', height:'8px', borderRadius:'4px', background:'var(--px-track, rgba(140,160,155,.2))'}}>${v!=null && html`<i style=${{position:'absolute', left:0, top:0, bottom:0, width:pos(v)+'%', borderRadius:'4px', background:'var(--px-brand2)'}}/>`}
+              ${m!=null && html`<b title=${'Group median '+FCT.pct(m, m%1? 1 : 0)} style=${{position:'absolute', left:pos(m)+'%', top:'-4px', bottom:'-4px', width:'2px', background:'var(--px-ink)'}}/>`}</span>
+            <b class="num" style=${{textAlign:'right', whiteSpace:'nowrap'}}>${v==null? 'not run' : FCT.pct(v, v%1? 1 : 0)}${v!=null && m!=null && v<m? html`<div class="faint" style=${{fontSize:'10.5px', fontWeight:400}}>median ${FCT.pct(m, m%1? 1 : 0)}</div>` : null}</b></div>`; })}
+        <div class="faint" style=${{fontSize:'11px'}}>Scale 90–100%; the dark tick is the group median. P2P is tested live on September transactions; the other towers show their last baseline test.</div></section>
+      <section class="px-kc" style=${{marginTop:'16px', cursor:'default'}}><div class="px-kc-h"><span class="px-kc-t static"><span>How ${x.e} compares with the other entities</span></span></div>
+        <${C.EntFigures} e=${x.e}/></section></${C.Sec}>`; };
+  (function(){ const st = document.createElement('style'); st.textContent = '.cmp-fig:hover{border-color:var(--px-brand2)!important}.cmp-fig:focus-visible,.cmp-seg:focus-visible{outline:2px solid var(--px-brand2);outline-offset:2px}.cmp-seg:hover b{text-decoration:underline}.cmp-tl{font-size:12px;margin-right:10px;color:var(--px-brand2);text-decoration:none;white-space:nowrap}.cmp-tl:hover{text-decoration:underline}'; document.head.appendChild(st); })();
+  C.page({ hash:(h)=>{ const x = E.find(y=> y.e===h); return x? { kind:'Entity', label:x.e, x } : null; }, tab:'entities', accent:'k-amber', bare:true, root:{ kind:'Overview', label:'Entity portfolio', icon:'Building2' }, Board, Detail });
+})();
+</script>
+</body>
+</html>

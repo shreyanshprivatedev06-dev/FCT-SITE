@@ -1,0 +1,125 @@
+/* Root cause analysis for every decision reachable from a Decide button in the R2R tower (including the cross-tower ones).
+   Shown in the decision drawer under "What happened". Facts only, taken from each decision's evidence and the R2R root-cause register;
+   where the data does not establish a cause, the text says so and names who must confirm it.
+   Fields: immediate (what directly caused it) · underlying (why that happened) · gap (the control that should have caught it)
+           factors [[driver, detail, share]] optional · fix (correct this period) · prevent (stop it recurring) · owner */
+(function(){
+  const D = window.FCT_DATA, RCA = {
+    'RTR-CLS-01':{
+      summary:"IN-07 is two days behind because three close tasks have stalled: the intercompany reconciliation owner is on leave (46% of the delay), 14 accruals worth ₹2.71 Cr are unreviewed (33%) and the PMO timesheet feed has been down since 02-Oct (21%). Close tasks have no named backup, and owner absence caused 3 of the last 6 slips. Reassign the reconciliation now; going forward, name a backup for every task and draft accruals on WD−1.",
+      immediate:'IN-07 has completed 17 of 31 tasks due to date. Three tasks on the critical path are not done.',
+      factors:[ ['Owner on leave','IN-07 ↔ IN-01 intercompany reconciliation; owner on leave 01–09 Oct','46%'],
+        ['Accruals not reviewed','14 clinical-trial site accruals (₹2.71 Cr) drafted on 02-Oct, still awaiting review','33%'],
+        ['Upstream data late','PMO timesheet feed degraded since 02-Oct 18:00','21%'] ],
+      underlying:'Close tasks have a single owner with no named backup; owner absence caused 3 of the last 6 close slips. Accruals are drafted after period end (02-Oct) instead of on WD−1.',
+      gap:'The close calendar does not require a backup owner per task, and the feed failure raised no alert to the close team.',
+      fix:'Reassign the IN-07 ↔ IN-01 reconciliation to a backup today; prioritise review of the 14 accruals; restore the PMO feed or accrue on the last valid data.',
+      prevent:'Name a backup for every close task; draft accruals on WD−1 using soft-close data; start intercompany confirmations on WD−2.',
+      owner:'Close orchestration' },
+    'RTR-JNL-02':{
+      summary:"A ₹2.40 Cr manual journal to revenue was posted at 23:48 on 30-Sep and approved four minutes later, with no supporting document. This was possible because revenue journals need no attachment, any IN-05 approver can approve them and the period lock allows postings until 23:59. Obtain the sales evidence or reverse the entry, and make attachments and an independent approver mandatory for revenue journals.",
+      immediate:'A manual journal (Dr Trade receivables, Cr Revenue, ₹2.40 Cr) was posted at 23:48 on 30-Sep and approved four minutes later, with no attachment and no billing document.',
+      underlying:'Manual journals to revenue need no supporting document, and any GL approver at IN-05 can approve them. IN-05 was ₹2.6 Cr short of its Q2 revenue budget before the entry (context only).',
+      gap:'No preventive control on revenue journals: no mandatory attachment, no independent approver, and the period-end lock allows postings until 23:59.',
+      fix:'Obtain the sales evidence. If none exists, reverse the journal in September; it must not rely on the 01-Oct auto-reversal.',
+      prevent:'Make an attachment mandatory for revenue journals, route them to a finance approver outside the entity, and lock revenue postings earlier on the last day.',
+      owner:'Group reporting and IN-05 finance' },
+    'RTR-REC-03':{
+      summary:"The ₹3.10 Cr difference between IN-02 and US-01 is fully explained: ₹2.60 Cr of goods invoiced on 29-Sep but received by US-01 only on 03-Oct, and ₹0.50 Cr because US-01 used the average rate instead of the closing rate. Both were missed because intercompany confirmations start after period end. US-01 should book both items; confirmations should start on WD−2.",
+      immediate:'IN-02 shows ₹48.70 Cr receivable from US-01; US-01 shows ₹45.60 Cr payable. The ₹3.10 Cr difference is fully explained by two items.',
+      factors:[ ['Goods in transit','IN-02 invoiced on 29-Sep (IN02/EXP/26/1187); US-01 received the goods on 03-Oct and has not recorded them','₹2.60 Cr'],
+        ['FX translation','US-01 translated the payable at the September average rate instead of the 30-Sep closing rate','₹0.50 Cr'] ],
+      underlying:'Intercompany confirmations start on WD+1, after the books close, so timing items are found too late to book. US-01 applies the average rate to a balance-sheet item.',
+      gap:'No intercompany cut-off check at period end, and no rate check on translated balances.',
+      fix:'US-01 to record ₹2.60 Cr goods in transit and re-translate at the closing rate (₹0.50 Cr); then eliminate.',
+      prevent:'Start intercompany confirmations on WD−2; enforce the closing rate for monetary balances in the translation set-up.',
+      owner:'Group reporting with US-01 finance' },
+    'RTR-VAR-04':{
+      summary:"Freight at IN-02 is ₹14.2 Cr over budget, mainly because air freight rose from 9% to 22% of shipments (₹10.1 Cr) and rates rose 6% (₹4.7 Cr). The reason for the move to air is not recorded and must be confirmed by Supply chain before the commentary is signed; freight coding should also be checked, as 1,140 lines were recoded in Q2.",
+      immediate:'Freight outward at IN-02 was ₹93.1 Cr against a budget of ₹78.9 Cr: ₹14.2 Cr (18%) adverse.',
+      factors:[ ['Air-freight mix','Air share rose from 9% to 22% of shipments','+₹10.1 Cr'], ['Rate','Rate per kg up 6%','+₹4.7 Cr'], ['Volume','Shipped volume down 3%','−₹0.6 Cr'] ],
+      underlying:'71% of the variance comes from the shift to air freight. The business reason for that shift is not recorded in the data; Supply chain must confirm it before the commentary is signed. Freight lines are also often mis-coded (1,140 lines recoded in Q2), so the split between accounts needs checking.',
+      gap:'Air shipments above budgeted mix need no prior finance approval, and there is no automatic coding rule for freight.',
+      fix:'Confirm the reason for air freight with logistics, check coding of September freight lines, then sign the variance commentary.',
+      prevent:'Require approval for air freight above the budgeted share; introduce an auto-coding rule and chart-of-accounts mapping for freight.',
+      owner:'FP&A with Logistics' },
+    'RTR-JNL-08':{
+      summary:"64 journals worth ₹9.33 Cr are waiting because every journal goes through the same manual approval queue, although 58 of them are low risk (₹1.20 Cr) and about 30% of journals recur each month. Approve the low-risk batch and review the 6 high-value journals first, including ₹4.12 Cr of depreciation; risk-based routing and automated recurring journals will prevent the backlog.",
+      immediate:'64 journals worth ₹9.33 Cr are waiting for approval. 58 are low risk (₹1.20 Cr); 6 need a reviewer (₹8.13 Cr, including September depreciation of ₹4.12 Cr).',
+      underlying:'All journals go to the same manual approval queue regardless of risk. About 30% of journals recur every month (352 automation candidates), so approvers spend time on routine entries.',
+      gap:'No risk-based routing: low-risk recurring journals are not auto-approved and high-value ones are not prioritised.',
+      fix:'Approve the 58 low-risk journals as a batch; review the 6 high-value journals first, starting with depreciation.',
+      prevent:'Use AI-prepared recurring journals (in pilot) and route by risk so only exceptions reach a reviewer.',
+      owner:'GL lead' },
+    'RTR-REC-07':{
+      summary:"IN-08's suspense account holds ₹0.80 Cr with no supporting detail, including nine items older than 30 days that were never cleared or escalated. Offsets have been found for seven, so most are unmatched entries rather than missing money. Clear the seven, investigate the other two and set a 30-day clearance limit with escalation.",
+      immediate:'Account 1999 Suspense and clearing at IN-08 holds ₹0.80 Cr with no sub-ledger support. Nine items are older than 30 days (7 at 30–60 days, 2 at 60–90 days).',
+      underlying:'Items were parked in suspense and never cleared. Matching offsets exist for 7 of the 9 items, so most are unmatched entries rather than missing money.',
+      gap:'Nine items passed 30 days without being cleared or escalated; no ageing limit is applied to the suspense account.',
+      fix:'Clear the 7 matched items against their offsets; investigate the remaining 2 and write off or reclassify with approval.',
+      prevent:'Set a 30-day clearance limit for suspense with automatic escalation to the entity controller.',
+      owner:'IN-08 finance' },
+    'RTR-ACR-09':{
+      summary:"IN-03's August contract-labour accrual of ₹0.86 Cr was posted without the auto-reverse flag, and the September invoice was then booked too, so the cost is counted twice. Nothing checks open accruals against the invoices that follow. Reverse the accrual in September and make the reversal flag the default for accrual journals.",
+      immediate:'The August contract-labour accrual (₹0.86 Cr) was posted without the auto-reverse flag. The September invoice for the same work was also booked, so the cost is recorded twice.',
+      underlying:'The reversal flag is set manually by the preparer and was missed.',
+      gap:'Accrual journals can be posted without a reversal flag, and no check compares open accruals with the invoices that later arrive.',
+      fix:'Reverse the August accrual in September: Dr Accrued liabilities, Cr Contract labour, ₹0.86 Cr.',
+      prevent:'Default the reversal flag on accrual journal types, and match open accruals to incoming invoices each month.',
+      owner:'IN-03 finance' },
+    'RTR-PER-10':{
+      summary:"₹0.42 Cr of freight was posted into August on 02-Oct, after August was reported, using the shared superuser ID fin_admin. Its period-override rights were released under emergency access approved by IT without finance sign-off. Move the entry to October, remove override rights from shared IDs and require finance approval for emergency access.",
+      immediate:'On 02-Oct a journal dated 31-Aug moved ₹0.42 Cr of freight into August, after August had been reported (August freight now ₹2.28 Cr in the ledger against ₹1.86 Cr reported).',
+      underlying:'The shared superuser ID fin_admin keeps the right to override the period lock. It was released on 01-Oct under emergency access EAR-0412, raised by vjain.in08 and approved by IT operations without finance sign-off.',
+      gap:'Emergency access to a finance superuser does not require finance approval, and the shared ID hides who posted the entry.',
+      fix:'Reverse the journal from August and repost it in October; disclose the change to reported August figures if material.',
+      prevent:'Remove period-override rights from shared IDs; require finance sign-off for emergency access to finance roles.',
+      owner:'IN-08 finance with IT security' },
+    'RTR-PCK-11':{
+      summary:"The pack is ₹1.18 Cr below the trial balance because account 5418 Catalyst regeneration at IN-05 was used before it was mapped to the group chart of accounts, and the pack is not tied out automatically before release. Map it (suggested: 5210 Consumables), re-run the pack, and block postings to unmapped accounts.",
+      immediate:'The management pack shows other opex of ₹174.7 Cr; the trial balance gives ₹175.9 Cr. The ₹1.18 Cr difference is account 5418 Catalyst regeneration at IN-05, which is not mapped to any pack line.',
+      underlying:'IN-05 uses a local chart of accounts (v1) that is 96.2% mapped to the group chart. Account 5418 was used before it was mapped; the suggested mapping is 5210 Consumables (88% confidence).',
+      gap:'New local accounts can be posted to before they are mapped, and the pack is not tied out to the trial balance automatically before release.',
+      fix:'Map 5418 to 5210 Consumables (or the line Group reporting confirms) and re-run the pack.',
+      prevent:'Block postings to unmapped accounts; run an automatic pack-to-trial-balance tie-out before release.',
+      owner:'Group reporting' },
+    'PTP-GRNI-01':{
+      summary:"₹4.10 Cr of goods and services consumed in September across 63 POs has no liability in the books, because accruals depend on invoices received and goods receipts are posted late at IN-02 Plant A, IN-05 and IN-04. Book the accrual dated 30-Sep and review ₹9.2 Cr of GRNI older than 90 days; posting receipts within 48 hours will prevent recurrence.",
+      immediate:'Goods and services were consumed in September on 63 purchase orders with no invoice and no liability recorded: ₹4.10 Cr.',
+      factors:[ ['Invoice arrived after cut-off','Invoices dated by 30-Sep, received 1–3 Oct (logistics)','₹1.12 Cr'],
+        ['Service entry missing','Goods receipt posted, service entry sheet missing (contract manufacturing)','₹0.94 Cr'],
+        ['No invoice yet','Power and steam (run-rate), maintenance AMC, IT services, professional fees and 57 other POs','₹2.04 Cr'] ],
+      underlying:'Goods receipts are posted late at three plants (IN-02 Plant A, IN-05, IN-04), so the books do not show consumption until the invoice arrives.',
+      gap:'Month-end accruals rely on invoices received rather than on goods and services consumed.',
+      fix:'Book the ₹4.10 Cr accrual dated 30-Sep, reversing 01-Oct; review the ₹9.2 Cr GRNI older than 90 days for about ₹1.3 Cr of stale items to write back.',
+      prevent:'Post goods receipts within 48 hours (mobile receipt at the gate); accrue from receipts and contracts each month.',
+      owner:'Plant heads and AP' },
+    'O2C-BILL-04':{
+      summary:"₹5.40 Cr of September revenue is unrecorded because 31 dispatches passed to customers by 30-Sep but proof of delivery reached billing 2–3 days late, so invoices fall into October. Recognise ₹5.40 Cr as unbilled receivables (margin ₹2.34 Cr) and exclude six in-transit dispatches (₹0.90 Cr); a real-time delivery feed to billing will fix the cut-off.",
+      immediate:'31 dispatches (₹5.40 Cr) passed control to customers by 30-Sep but were not invoiced, so September revenue is understated. Six more (₹0.90 Cr) were still in transit under DAP or DDP terms and must not be recognised.',
+      underlying:'Proof of delivery reaches billing 2–3 days late, so invoices for late-September dispatches are raised in October.',
+      gap:'Billing waits for proof of delivery instead of the transfer of control under the Incoterm; there is no cut-off check between dispatch and billing.',
+      fix:'Recognise ₹5.40 Cr as unbilled receivables with cost of sales ₹3.06 Cr (margin ₹2.34 Cr), reversing on invoicing; exclude the six in-transit dispatches.',
+      prevent:'Feed proof of delivery from the transport system to billing in real time; run a dispatch-to-invoice cut-off check on WD0.',
+      owner:'Logistics and billing (O2C)' },
+    'SC-INV-01':{
+      summary:"₹11.8 Cr of stock, mostly at IN-05, is near expiry or not moving, and group policy requires a ₹2.90 Cr provision. The data does not show why the stock built up, so Supply chain must confirm the cause before approval. Book the provision and review near-expiry stock monthly.",
+      immediate:'₹11.8 Cr of stock across 286 SKUs, mainly at IN-05, is near expiry or not moving. The group policy requires a ₹2.90 Cr provision.',
+      factors:[ ['Expiry under 90 days','₹1.6 Cr provided at 100%','₹1.60 Cr'], ['Expiry 90–180 days','₹1.8 Cr provided at 50%','₹0.90 Cr'],
+        ['No movement over 365 days','₹1.6 Cr provided at 25%','₹0.40 Cr'], ['Slow-moving 180–365 days','₹6.8 Cr on watch, not provided','₹0.00 Cr'] ],
+      underlying:'The data shows where the stock sits but not why it built up (purchasing above demand, a drop in demand or minimum batch sizes). Supply chain must confirm the cause before the provision is approved.',
+      gap:'No earlier alert was raised on this stock; it was identified only by the provisioning policy run.',
+      fix:'Book the ₹2.90 Cr provision: Dr Inventory provision expense, Cr Provision for inventory.',
+      prevent:'Review near-expiry stock monthly and link purchase planning to shelf life.',
+      owner:'Supply chain and plant finance' },
+    'SC-URP-08':{
+      summary:"Unrealised profit on intra-group stock at US-01 and EU-01 is under-eliminated by ₹1.40 Cr: ₹12.9 Cr is required at the 29% group margin but ₹11.5 Cr is booked, leaving about ₹4.8 Cr of stock (including goods in transit) uncovered. Book the top-up and recalculate the elimination from closing stock each month.",
+      immediate:'US-01 and EU-01 hold ₹44.4 Cr of stock bought from group companies (including ₹2.6 Cr in transit). At the 29% group margin, ₹12.9 Cr of profit must be eliminated; ₹11.5 Cr is booked, leaving ₹1.40 Cr under-provided.',
+      underlying:'The booked elimination covers about ₹39.7 Cr of stock (₹11.5 Cr ÷ 29%), so about ₹4.8 Cr of intra-group stock, including goods in transit, is not covered.',
+      gap:'The elimination is not recalculated from closing intra-group stock at each period end.',
+      fix:'Book a ₹1.40 Cr top-up to the unrealised-profit elimination on consolidation.',
+      prevent:'Calculate the elimination each month from closing intra-group stock, including goods in transit.',
+      owner:'Group reporting' }
+  };
+  Object.keys(RCA).forEach(id=>{ const x = D.exceptions.find(e=> e.id===id); if(x) x.rca = RCA[id]; });
+})();

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Investigations | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../assets/js/cmp/cmp-preview.js"></script>
+</head>
+<body class="px-full" data-page="cmp/investigation" data-root="../../">
+<script>try{ if((localStorage.getItem("fct-p2p-theme")||"dark")==="light") document.body.classList.add("theme-light"); }catch(e){}</script>
+<div id="app"><p style="padding:24px">Loading Investigations…</p></div>
+<script>
+/* DESIGN PREVIEW of Compliance step 3: Investigations, "Has anything actually gone wrong?" */
+(function(){
+  const P = P2P, html = P.html, R = P.R, COL = P.COL, FCT = window.FCT, C = CMPV, D = C.D, { pc, cr } = C;
+  const amt = (v)=> FCT.amt(v);
+  const CASES = D.cases;
+  /* demo: the signal behind each anomaly, in one sentence */
+  const WHY = D.anmWhy;
+  /* anomalies 80+ without a case: reviewer, due date and the test that decides case or close */
+  const NEXT = D.anmNext;
+  const scorePill = (v)=>{ const c = v>=90? COL.crit : v>=80? COL.high : v>=60? 'var(--px-medium)' : 'var(--px-ink3)';
+    return html`<span class="px-prio" style=${{ background:'color-mix(in srgb, '+c+' 18%, transparent)', color:c, fontWeight:700 }}>${v}</span>`; };
+  const bandCol = [COL.crit, COL.high, 'var(--px-medium)', 'var(--px-fade)'];
+
+  /* demo: the 36 lower-scoring anomalies behind the 60–79 and below-60 bands (watched as trends, not reviewed one by one) */
+  const LOW = (()=>{ const T = [['Invoice paid 2 days before its due date','P2P'],['PO raised after the goods arrived','P2P'],['Vendor address changed twice in a month','P2P'],
+      ['Manual journal posted outside working hours','R2R'],['Accrual reversed in the same period','R2R'],['Credit note raised a week after the invoice','O2C'],
+      ['Customer discount above the usual rate','O2C'],['Stock moved between plants without a transfer order','SC'],['Scrap posted above the monthly average','SC'],['Freight charged above the contract rate','P2P'],
+      ['Payment made just under the approval limit','P2P'],['Journal with a round amount and a short description','R2R']];
+    const E = ['IN-01','IN-02','IN-03','IN-04','IN-05','IN-06','IN-07','IN-08','US-01','EU-01'], out = [];
+    const sc60 = [79,78,77,77,75,74,73,72,71,70,69,68,67,66,65,64,63,62,62,61,60], sc0 = [59,58,57,55,54,52,51,49,48,47,46,45,44,42,41];
+    sc60.concat(sc0).forEach((v,i)=>{ const t = T[(i*5)%T.length]; out.push(['ANM-2026-0'+(810+i*2), t[0], E[(i*3)%E.length], +((0.008+((i*37)%23)*0.011)).toFixed(4), v, '', t[1]]); });
+    return out; })();
+  const ALL = D.anomalies.concat(LOW);
+  const BANDS = [['top','80–100', (v)=> v>=80], ['90–100','90–100', (v)=> v>=90], ['80–89','80–89', (v)=> v>=80 && v<90], ['60–79','60–79', (v)=> v>=60 && v<80], ['Below 60','Below 60', (v)=> v<60]];
+  const AnomalySec = ({ open })=>{ const [band, setBand] = React.useState('top'), B = BANDS.find(x=> x[0]===band);
+    const rows = ALL.filter(a=> B[2](a[4])).sort((x,y)=> y[4]-x[4]);
+    const on = (b)=> band==='top'? (b==='90–100' || b==='80–89') : band===b;
+    const pick = (b)=> setBand(band===b? 'top' : b);
+    const review = band==='top' || band==='90–100' || band==='80–89';
+    return html`<${C.Sec} c="vendor" icon="Target" title="Anomalies" sub="47 transactions flagged in September. Scores of 80–100 come first; each one needs a person to review it.">
+      <div class="px-brow"><${C.Card} k="k-amber" icon="Layers" title="Flagged in September, by score band">
+        <${P.ChartBox} height=${200} label="Anomalies by score band" table=${P.mini(['Band','Count'], D.bands)}>
+          <${R.BarChart} data=${D.bands.map(([b,n])=>({b,n}))} margin=${{top:16,right:8,left:0,bottom:4}}>
+            <${R.CartesianGrid} vertical=${false} stroke="var(--px-grid)"/><${R.XAxis} dataKey="b" ...${C.axis}/><${R.YAxis} allowDecimals=${false} width=${30} ...${C.axis}/>
+            <${R.Tooltip} content=${C.Tip((v)=> v+' transactions · click to list them')}/><${R.ReferenceLine} x="80–89" stroke=${COL.brass} strokeDasharray="4 4"/>
+            <${R.Bar} dataKey="n" name="Transactions" radius=${[3,3,0,0]} isAnimationActive=${false} style=${{cursor:'pointer'}} onClick=${(d)=> d && pick(d.b)} label=${{ position:'top', fill:'var(--px-ink2)', fontSize:11 }}>${D.bands.map((b,i)=> React.createElement(R.Cell, { key:i, fill:bandCol[i], fillOpacity: on(b[0])? 1 : 0.3 }))}</${R.Bar}>
+          </${R.BarChart}></${P.ChartBox}>
+        <${C.Legend} items=${[['90+: act today', COL.crit], ['80–89: a person reviews', COL.high], ['60–79: watch', 'var(--px-medium)'], ['Below 60', 'var(--px-fade)']]}/></${C.Card}></div>
+      <section class="px-kc px-exc" style=${{marginTop:'16px'}}>
+        <div class="px-kc-h" style=${{flexWrap:'wrap', gap:'8px'}}><span class="px-kc-t static"><span>${rows.length} transaction${rows.length===1? '' : 's'} scored ${B[1]}</span></span>
+          <${P.Seg} label="Score band" value=${band} onChange=${setBand} options=${BANDS.map(x=> [x[0], x[1]])}/></div>
+        ${!review && html`<${C.AI}>Scores in this band are watched as trends, not reviewed one by one. Open a row to see why it was flagged.</${C.AI}>`}
+        <div class="px-tbl"><table class="t px-t dense"><thead><tr><th class="r">Score</th><th>What was flagged</th><th>Entity</th><th class="r">Amount</th><th>Source</th><th>Case</th></tr></thead>
+        <tbody>${rows.map(a=> html`<tr key=${a[0]} class="sel" tabIndex="0" onClick=${()=> open({ kind:'Anomaly', label:a[0], a })}>
+          <td class="r num">${scorePill(a[4])}</td><td>${a[1]}<div class="sub">${a[0]}</div></td><td>${a[2]}</td><td class="r num">${amt(a[3])}</td>
+          <td>${a[6]==='Baseline'? html`<${C.Pill} tone="a">Compliance baseline</${C.Pill}>` : a[6]}</td>
+          <td>${a[5]? C.decide(a[5]) : a[4]>=80? html`<button type="button" class="btn sm" onClick=${(e)=>{ e.stopPropagation(); open({ kind:'Anomaly', label:a[0], a }); }}>Review</button>` : html`<span class="faint">Watch</span>`}</td></tr>`)}</tbody></table></div></section></${C.Sec}>`; };
+  const Board = ({ open })=> html`
+    <${C.Sec} c="exc" icon="Crosshair" title="Has anything actually gone wrong?" sub="Where a control failure became money paid, access misused or a suspicious transaction."
+      right=${html`<${C.Pill} tone="r">8 cases with money involved</${C.Pill}><${C.Pill} tone="a">5 of 11 anomalies to review</${C.Pill}>`}>
+      <div class="px-hero3-g" style=${{gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))'}}>
+        <${C.RCard} k="k-amber" title="Cases with money involved" icon="IndianRupee" basis="As at 05-Oct" value="8" tone="crit" chip=${html`<${C.Pill} tone="r">5 of 8 critical</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Cases by severity" parts=${[{ l:'Critical', v:5, c:COL.crit }, { l:'High', v:3, c:COL.high }]}/>`}
+          note="8 high or critical cases, raised from anomalies and failing controls, where money was paid, posted or is short. Each shows its own amount below; amounts are never added up, because one event can surface in more than one case." foot=${[['Critical', '5', 'r'], ['High', '3', 'a'], ['Largest', '₹2.40 Cr']]}/>
+        <${C.RCard} k="k-amber" title="Anomalies to review" icon="Target" basis="Sep-26" value="11" tone="crit" chip=${html`<${C.Pill} tone="r">Score 80+</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Anomalies by score band" parts=${D.bands.map(([b,n],i)=> ({ l:b, v:n, c:bandCol[i] }))}/>`}
+          note="47 transactions flagged in September; 11 scored 80 or more. 6 already sit in a case; 5 still need a person to review them." foot=${[['Flagged', '47'], ['In a case', '6'], ['To review', '5', 'r']]}/>
+        <${C.RCard} k="k-violet" title="Access conflicts" icon="Lock" basis="As at 05-Oct" value="3" tone="crit" chip=${html`<${C.Pill} tone="r">1 of 3 used</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Access conflicts used and unused" parts=${[{ l:'Used', v:1, c:COL.crit }, { l:'Not used', v:2, c:'var(--px-medium)' }]}/>`}
+          note="One user at IN-03 can create vendors and approve payments, and used it to pay ₹18.7 L to a vendor they created." foot=${[['Used', '1', 'r'], ['Not used', '2'], ['Points lost', '6.0', 'r']]}/>
+        <${C.RCard} k="k-teal" title="Sanctions screening" icon="Users" basis="As at 05-Oct" value="0 hits" chip=${html`<${C.Pill} tone="g">570 of 570 screened</${C.Pill}>`}
+          viz=${html`<div class="px-bullet" role="img" aria-label="570 of 570 vendors and customers screened"><i style=${{ width:'100%', background:'var(--px-pos)' }}/></div>`}
+          note="150 P2P vendors and 420 O2C customers were screened against sanctions lists. None matched." foot=${[['Vendors (P2P)', '150'], ['Customers (O2C)', '420'], ['Matches', '0']]}/>
+      </div></${C.Sec}>
+    <${C.Sec} c="exc" icon="IndianRupee" title="Cases with money involved" sub="Largest first. Amounts are per case, never added: one event can appear in more than one case."
+      right=${html`<${C.Pill} tone="r">5 of 8 critical</${C.Pill}><${C.Pill} tone="a">3 of 8 high</${C.Pill}>`}>
+      <section class="px-kc px-exc"><div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Case</th><th>Entity</th><th>Tower</th><th class="r">Amount</th><th>Severity</th><th><span class="sr">Action</span></th></tr></thead>
+        <tbody>${CASES.map(c=> html`<tr key=${c[0]} class="sel" tabIndex="0" onClick=${()=> FCT.openDrawer(c[0])} onKeyDown=${(e)=>{ if(e.key==='Enter') FCT.openDrawer(c[0]); }}>
+          <td>${c[1]}<div class="sub">${c[0]}</div></td><td>${c[2]}</td><td>${c[3]}</td><td class="r num">${(FCT.ex(c[0]) || {}).impact? FCT.ex(c[0]).impact.short : amt(c[4])}</td><td>${C.sev(c[5])}</td><td class="r">${C.towerBtn(c[0], c[2])}${C.decide(c[0])}</td></tr>`)}</tbody></table></div></section></${C.Sec}>
+    <${AnomalySec} open=${open}/>
+    <${C.Sec} c="kpi" icon="Lock" title="Access conflicts" sub="Users who hold two rights that should be split. A used conflict is an actual control failure.">
+      <section class="px-kc px-exc"><div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Conflict</th><th>Rights held together</th><th>User</th><th>Process</th><th class="r">Health points</th><th></th></tr></thead>
+        <tbody>${D.sod.map(s=> html`<tr key=${s[0]} class="sel" onClick=${()=> open({ kind:'Access conflict', label:s[0], s })}><td>${s[0]}</td><td>${s[1]}</td><td>${s[2]}<div class="sub">${s[3]}</div></td><td>${s[5]}</td>
+          <td class="r num">${s[4]? '4.0' : '1.0'}</td><td class="r">${s[4]? C.decide('CMP-SOD-01') : ''}</td></tr>`)}</tbody></table></div></section></${C.Sec}>
+    `;
+
+  const Detail = ({ path })=>{
+    const l = path[0];
+    if(l.a){ const a = l.a;
+      return html`<${C.Sec} c="exc" icon="Target" title=${a[1]} sub=${a[0]+' · '+a[2]+' · score '+a[4]+' of 100 · '+FCT.amt(a[3])} right=${html`${C.towerBtn(a[5], a[2])}${a[5] && C.decide(a[5])}`}><div class="px-brow">
+        <${C.Card} k="k-amber" icon="Info" title="Why it was flagged">
+          <${C.AI}>${WHY[a[0]] || a[1]+' at '+a[2]+' ('+(D.entName[a[2]]||'')+'), '+FCT.amt(a[3])+', source '+a[6]+'; score '+a[4]+' of 100. Below 80 it is watched as a trend, not reviewed one by one; it goes to a person if it rises to 80 or repeats next month.'}</${C.AI}><div class="px-tbl"><table class="t px-t dense"><tbody>${[['Risk score', a[4]+' of 100 (80+ needs a person; 90+ is acted on today)'], ['Amount', FCT.amt(a[3])], ['Entity', a[2]+' '+(D.entName[a[2]]||'')], ['Source', a[6]==='Baseline'? 'Compliance baseline, not from P2P' : a[6]], ['Linked case', a[5]||'None yet'], ...(!a[5] && NEXT[a[0]]? [['Next step', NEXT[a[0]]]] : [])].map(([k,v])=> html`<tr key=${k}><td>${k}</td><td>${v}</td></tr>`)}</tbody></table></div></${C.Card}>
+        <${C.Card} k="k-amber" icon="Check" title="What happens next">
+          <${C.AI}>${a[5]? 'Open the case with Decide. Taking the recommendation protects the money and closes the case; the decision is filed for the auditor.' : 'Review the transaction. Mark it legitimate (with a reason) or open a case. Either way the review counts towards the 11 to review.'}</${C.AI}>
+          ${a[6]==='P2P' && html`<a class="btn sm" href="../p2p/desk.html#kpi=exposure">Open the P2P records</a>`}</${C.Card}></div></${C.Sec}>`; }
+    const s = l.s;
+    return html`<${C.Sec} c="kpi" icon="Lock" title=${s[0]+': '+s[1]} sub=${s[2]+' · '+s[3]+' · '+s[5]} right=${s[4] && html`${C.towerBtn('CMP-SOD-01', 'IN-03')}${C.decide('CMP-SOD-01')}`}><div class="px-brow">
+      <${C.Card} k="k-violet" icon="Info" title="The conflict"><div class="px-tbl"><table class="t px-t dense"><tbody>${[['Rights', s[1]], ['User', s[2]], ['Used in a transaction', s[4]? 'Yes: created V-310992 Sai Enterprises (14-Sep), approved ₹18.7 L to it (22-Sep)' : 'No conflicting transactions, 01-Apr to 30-Sep (tested 04-Oct)'], ['Health cost', s[4]? '4.0 points (20% of the area)' : '1.0 point (5% of the area)'], ['Finding', s[4]? 'F-2026-034 (repeat)' : '—']].map(([k,v])=> html`<tr key=${k}><td>${k}</td><td>${v}</td></tr>`)}</tbody></table></div></${C.Card}>
+      <${C.Card} k="k-violet" icon="Check" title="Fix"><${C.AI}>${s[4]? 'Remove Payment run approve from the user (access change), and Internal Audit reviews the 2 transactions. Health rises from 85.5 to 89.5.' : 'Remove '+s[1].split(' + ')[1]+' from '+s[2].split(',')[0]+' ('+s[3]+') and keep '+s[1].split(' + ')[0]+'. Health rises by 1 point.'}</${C.AI}></${C.Card}></div></${C.Sec}>`;
+  };
+  C.page({ tab:'story', step:'3', accent:'k-amber', root:{ kind:'Compliance', label:'Investigation desk', icon:'Crosshair' }, Board, Detail });
+})();
+</script>
+</body>
+</html>

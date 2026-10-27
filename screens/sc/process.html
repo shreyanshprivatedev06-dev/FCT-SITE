@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SC process chain | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/sc/load-sc.js"></script>
+</head>
+<body data-page="sc/process" data-root="../../">
+<div id="app"><p style="padding:24px">Loading the supply chain process…</p></div>
+<script>
+/* Process chain: where in Forecast → Plan → Procure → Receive → Produce → Ship the issues arise, which materials cause them,
+   the records behind them, and the root causes being fixed. Breadcrumb: Process chain › Stage › Issue › Material › document. */
+(function(){
+  const { html, h, R, COL, Icon, cx } = SC, P = SC, M = SCM, C = M.C, FCT = window.FCT;
+  const { useState, Fragment } = React;
+  const { cr, amt, pct } = P, N = P.node;
+
+  /* records behind a stage or issue, from the chain scope */
+  const recVal = (q)=> (q.x || q).val || 0;
+  const KN = { lot:'Stock lot', fc:'Forecast', po:'PO line', gr:'Goods receipt', gate:'Gate entry', git:'Shipment in transit', count:'Cycle count', batch:'Batch', ship:'Dispatch', material:'Material policy' };
+  const recKind = (r)=> KN[r.kind] || r.kind;
+  const recDate = (x)=> x.at!=null? x.at : x.due!=null? x.due : x.bl!=null? x.bl : x.rcv!=null? x.rcv : x.m!=null? M.C.mStart[x.m] : null;
+  const recsOf = (S, stage, code, vendor)=>{
+    const seen = new Map();
+    C.stages.filter(s=> !stage || s.id===stage).forEach(s=> Object.values(S[s.id].issues).filter(r=> !code || r.code===code).forEach(r=> r.recs.forEach(q=>{
+      if(vendor && (q.x.v||q.x.id)!==vendor) return; const k = q.x.id; const e = seen.get(k) || { x:q.x, kind:q.kind, codes:[] }; e.codes.push(r.code); seen.set(k, e); })));
+    return [...seen.values()];
+  };
+  const recCols = [
+    { k:'id', l:'Record', fmt:(r)=> html`<b>${r.kind==='material'? r.x.mat : r.kind==='lot'? r.x.batch : r.x.id}</b><div class="sub">${recKind(r)}</div>`, sv:(r)=> r.x.id },
+    { k:'v', l:'Material', fmt:(r)=> M.matLabel(r.kind==='material'? r.x.id : r.x.v), sv:(r)=> M.matLabel(r.kind==='material'? r.x.id : r.x.v) }, { k:'e', l:'Plant', fmt:(r)=> M.plantName(r.x.plant), sv:(r)=> r.x.plant },
+    { k:'d', l:'Date', fmt:(r)=> M.date(recDate(r.x)), sv:(r)=> recDate(r.x) },
+    { k:'a', l:'Value', r:true, fmt:(r)=> amt(recVal(r)), sv:recVal },
+    { k:'i', l:'Issues', fmt:(r)=> html`<span class="px-bad">${r.codes.map(c=> M.issue(c).name).join('; ')}</span>`, sv:(r)=> r.codes.length } ];
+  const RecTable = ({ rows, dispatch, title })=> html`<${P.Card} title=${title||'Records'} sub=${FCT.n(rows.length)+' records. Double-click, press Enter or use › to open the full chain.'} className="flush">
+    <${P.Table} cols=${recCols} rows=${rows.sort((a,b)=> recVal(b)-recVal(a))} rowKey=${(r)=> r.x.id} caption=${title||'Records'} onOpen=${(r)=> dispatch({ t:'drill', node: r.kind==='material'? { t:'profile', id:r.x.id, label:M.matLabel(r.x.id) } : N.doc(r.x.id) })} limit=${20}/></${P.Card}>`;
+  const issueRows = (S, stage, vendor)=>{ const rows = []; C.stages.filter(s=> !stage || s.id===stage).forEach(s=> Object.values(S[s.id].issues).forEach(r=>{
+      const recs = vendor? r.recs.filter(q=> (q.x.v||q.x.id)===vendor) : r.recs; if(!recs.length) return; const val = M.sum(recs, recVal);
+      rows.push({ key:r.code, label:M.issue(r.code).name, val:recs.length, value:val, sub:(stage? '' : M.stage(s.id).name+' · ')+amt(val)+' · '+M.issue(r.code).kind.replace('fin','financial').replace('ctl','control').replace('ops','process') }); })); return rows.sort((a,b)=> b.value-a.value); };
+  const materialRows = (S, stage, code)=>{ const g = {}; recsOf(S, stage, code).forEach(r=>{ const k = r.x.v || r.x.id, e = g[k] = g[k] || { key:k, label:M.matLabel(k), val:0, n:0 }; e.n++; e.val += recVal(r); });
+    return Object.values(g).sort((a,b)=> b.val-a.val).map(r=> Object.assign(r, { sub:r.n+' records · '+M.risk(r.key).approved, tone:P.RISK[M.risk(r.key).approved] })); };
+
+  const RCMAP = { 'RC-01':['rcv',['grLate','noGr']], 'RC-09':['prc',['price']], 'RC-10':['prd',['cnt']], 'RC-11':['prd',['cnt']], 'RC-12':['prc',['late']], 'RC-08':['pln',['excess','mdGap']] };
+  const RC = ((window.FCT_DATA.sc||{}).rootCauses||[]).filter(r=> RCMAP[r[0]]).map(r=> ({ id:r[0], title:r[1], impact:r[2], owner:r[3], status:r[4], stage:RCMAP[r[0]][0], issues:RCMAP[r[0]][1] }));
+  function Root({ f, nav, dispatch }){
+    const S = M.chainScope(f), sel = nav.sel && nav.sel.dim==='stage'? nav.sel.key : null, hsel = nav.sel && nav.sel.dim==='cell'? nav.sel.key : null;
+    const st = sel && S[sel], stDef = sel && M.stage(sel);
+    const tot = C.stages.reduce((s,x)=> s + S[x.id].n, 0);
+    const worst = C.stages.slice().sort((a,b)=> S[b.id].val - S[a.id].val)[0];
+    return html`<${Fragment}>
+      <div class="px-stats row"><${P.Stat} label="Records with an issue" value=${FCT.n(tot)} sub="Counted once per stage"/>
+        <${P.Stat} label="Process affected" value=${M.stage(worst.id).name} sub=${amt(S[worst.id].val)+' · '+FCT.n(S[worst.id].n)+' records'}/>
+        <${P.Stat} label="Receipts not booked" value=${amt(M.kpi('rnb', f).v)} sub=${FCT.n(M.kpi('rnb', f).n)+' receipts at '+C.snapLabel}/>
+        <${P.Stat} label="Outside policy cover" value=${FCT.n(M.materialsIn(f).filter(v=> v.cover>v.maxD || v.cover<v.minD).length)} sub="Materials above the policy maximum or below the minimum"/></div>
+      <${P.Card} title="The supply chain" sub="Each stage shows the check it must pass. Select a stage to see its issues; double-click it or use › to investigate.">
+        <${P.Flow} S=${S} sel=${sel} onSelect=${(s)=> dispatch({ t:'sel', v:{ key:s, dim:'stage' } })} onOpen=${(s)=> dispatch({ t:'drill', node:N.stage(s) })}/></${P.Card}>
+      <div class="px-grid g-bd">
+        <${P.Card} title=${st? stDef.name+': '+stDef.q : 'Issues across the chain'} sub=${st? FCT.n(st.n)+' records with issues · '+amt(st.val)+' affected · '+(st.ctName||'')+' '+M.dur(st.ct) : 'Every issue type, ranked by value affected. Select a stage above to focus.'}
+          right=${st && html`<button type="button" class="btn sm primary" onClick=${()=> dispatch({ t:'drill', node:N.stage(sel) })}>Drill in<${Icon} n="ChevronRight" size=${14}/></button>`}>
+          <${P.BarList} rows=${issueRows(S, sel)} label="Issues" fmt=${(v)=> FCT.n(v)} rate=${true} onOpen=${(r)=>{ if(sel) dispatch({ t:'drill', node:N.stage(sel) }); dispatch({ t:'drill', node:N.issue(r.key) }); }} limit=${10}/></${P.Card}>
+        <${P.Card} title="Root causes being fixed" sub="Recurring causes, by the stage they affect; each fix removes a whole type of issue, not a single case">
+          <div class="px-kv">${RC.filter(o=> !sel || o.stage===sel).map(o=> html`<div key=${o.id}><span><b>${M.stage(o.stage).name}</b> · ${o.title}<br/><small>${o.id} · ${o.owner} · ${o.status} · ${o.issues.map(k=> M.issue(k).name).join('; ')}</small></span><b class="num">${o.impact}</b></div>`)}
+            ${!RC.some(o=> !sel || o.stage===sel) && html`<p class="px-p faint">No root cause logged for this stage.</p>`}</div>
+</${P.Card}></div>
+      <${P.Card} title="Which materials break which stage" sub="Materials with the highest value affected, by stage. Select a cell to see that material at that stage, or a name to open its profile.">
+        <${P.Heat} rows=${M.heat(f, 15)} sel=${hsel && { v:hsel.split('|')[0], stage:hsel.split('|')[1] }} onVendor=${(v)=> dispatch({ t:'drill', node:{ t:'profile', id:v, label:M.matLabel(v) } })}
+          onCell=${(v, s)=>{ dispatch({ t:'sel', v:{ key:v+'|'+s, dim:'cell' } }); dispatch({ t:'drill', node:N.stage(s) }); dispatch({ t:'drill', node:N.material(v) }); }}/></${P.Card}></${Fragment}>`;
+  }
+
+  function StageView({ f, nav, dispatch, stage, code }){
+    const S = M.chainScope(f), st = S[stage], recs = recsOf(S, stage, code);
+    const isel = nav.sel && nav.sel.dim==='issue'? nav.sel.key : null, vsel = nav.sel && nav.sel.dim==='vendor'? nav.sel.key : null;
+    if(!recs.length) return html`<${P.Empty} text="No records with this issue under the current filters."/>`;
+    return html`<${Fragment}>
+      <div class="px-stats row">${!code? html`<${P.Stat} label="Stage volume" value=${FCT.n(st.vol)} sub="Records passing through in the period"/><${P.Stat} label="Records with issues" value=${FCT.n(st.n)} sub=${pct(st.vol? st.n/st.vol*100 : null)+' of volume'}/>
+          <${P.Stat} label=${st.ctName||'Cycle time'} value=${M.dur(st.ct)}/>` : html`<${P.Stat} label="Records" value=${FCT.n(recs.length)}/><${P.Stat} label="Kind" value=${M.issue(code).kind==='fin'? 'Financial' : M.issue(code).kind==='ctl'? 'Control' : 'Process'} sub=${M.stage(stage).name+' stage'}/>`}
+        <${P.Stat} label="Value affected" value=${amt(M.sum(recs, recVal))}/><${P.Stat} label="Materials" value=${FCT.n(new Set(recs.map(r=>r.x.v||r.x.id)).size)}/></div>
+      <div class=${cx('px-grid', code? '' : 'g-2')}>
+        ${!code && html`<${P.Card} title="Issues at this stage" sub="Select to preview; double-click or › to drill in.">
+          <${P.BarList} rows=${issueRows(S, stage)} label="Issues at this stage" fmt=${(v)=> FCT.n(v)} rate=${true} sel=${isel} onSelect=${(r)=> dispatch({ t:'sel', v:{ key:r.key, dim:'issue' } })} onOpen=${(r)=> dispatch({ t:'drill', node:N.issue(r.key) })}/></${P.Card}>`}
+        <${P.Card} title="Materials behind it" sub="Value affected, by material and plant.">
+          <${P.BarList} rows=${materialRows(S, stage, code || isel)} label="Materials" fmt=${(v)=> amt(v)} sel=${vsel} onSelect=${(r)=> dispatch({ t:'sel', v:{ key:r.key, dim:'vendor' } })} onOpen=${(r)=> dispatch({ t:'drill', node:N.material(r.key) })} limit=${10}/></${P.Card}></div>
+      <${RecTable} rows=${recs} dispatch=${dispatch} title=${code? M.issue(code).name : M.stage(stage).name+' records with issues'}/></${Fragment}>`;
+  }
+
+  function MaterialAtStage({ f, nav, dispatch, stage, code, vendor }){
+    const S = M.chainScope(f), recs = recsOf(S, stage, code, vendor), p = M.vendor(vendor, f), why = M.why(vendor, null);
+    return html`<${Fragment}>
+      <div class="px-grid g-2"><${P.Card} title=${'Why '+p.v.name+' surfaced here'} right=${html`<button type="button" class="btn primary sm" onClick=${()=> dispatch({ t:'drill', node:{ t:'profile', id:vendor, label:M.matLabel(vendor) } })}>Open full Material Profile</button>`}>
+          <ul class="px-why"><li class="w-ctx"><b>${code? M.issue(code).name : M.stage(stage).name}: </b>${recs.length} records, ${amt(M.sum(recs, recVal))} in ${M.period(f.period).label}</li>${why.map((w,i)=> html`<li key=${i} class=${'w-'+w.t}>${P.vt(w.text)}</li>`)}</ul></${P.Card}>
+        <${P.Card} title="This material across the chain" sub="Six months of records, plus stock and policy levels at the reporting date">
+          <div class="px-kv">${p.stages.map(s=> html`<div key=${s.id} class=${s.id===stage? 'on' : ''}><span>${s.id===stage? html`<b>${s.name}</b>` : s.name}</span><b>${s.n} · ${amt(s.val)}</b></div>`)}</div></${P.Card}></div>
+      <${RecTable} rows=${recs} dispatch=${dispatch} title=${'Records for '+p.v.name}/></${Fragment}>`;
+  }
+
+  function App(){
+    const [f, setF, pending] = P.useFilters('f');
+    const [nav, dispatch0] = P.useNav('process', ['process'], 'Process chain');
+    const dispatch = P.guard(dispatch0);
+    const top = M.nav.top(nav), groups = M.nav.groups(nav), cur = M.nav.vendor(nav, f);
+    const stage = (groups.find(g=> g.dim==='stage')||{}).key || (groups.find(g=>g.dim==='issue')? M.issue(groups.find(g=>g.dim==='issue').key).stage : null);
+    const code = (groups.find(g=> g.dim==='issue')||{}).key;
+    const goDoc = (id)=> dispatch({ t:'drill', node:N.doc(id) }), goCase = (id)=> dispatch({ t:'drill', node:N.case(id) }), goV = (id)=> dispatch({ t:'drill', node:N.material(id) });
+    /* the chain is the screen; a stage, issue, vendor or document opens in a window */
+    let body = null;
+    if(top.t==='group') body = html`<${StageView} f=${f} nav=${nav} dispatch=${dispatch} stage=${stage} code=${code}/>`;
+    else if(top.t==='vendor' || top.t==='material') body = html`<${MaterialAtStage} f=${f} nav=${nav} dispatch=${dispatch} stage=${stage} code=${code} vendor=${top.id}/>`;
+    else if(top.t==='profile') body = html`<${P.MaterialProfile} id=${top.id} f=${f} ctx=${null} onDoc=${goDoc} onCase=${goCase}/>`;
+    else if(top.t==='doc') body = html`<${P.DocView} id=${top.id} onMaterial=${goV} onCase=${goCase}/>`;
+    else if(top.t==='case') body = html`<${P.CaseView} id=${top.id} onDoc=${goDoc} onMaterial=${goV} onCase=${goCase}/>`;
+    const title = stage? M.stage(stage).name+(code? ': '+M.issue(code).name : '') : top.label;
+    const detail = nav.path.length>1;
+    return html`<div class="px-scr k-teal"><${P.ScreenTabs} on="process" right=${html`<${P.FilterBar} f=${f} setF=${setF} pending=${pending} compact=${true}/>`}/>
+      <${P.GlobalCrumb} root=${{ kind:'Overview', label:'Process chain', icon:'Layers', go:()=> dispatch({ t:'home' }) }} nav=${nav} dispatch=${dispatch} from=${1} show=${detail}/>
+      ${detail? html`<section class="px-panel px-detail k-teal" aria-label=${title}><header class="px-ph"><div class="px-pt"><div class="px-pt-t"><h1><span class="px-h-i"><${Icon} n=${stage? M.stage(stage).icon : 'Layers'} size=${20} strokeWidth=${1.6}/></span>${title}</h1>${stage && html`<p>${M.stage(stage).q}</p>`}</div>
+            <div class="px-pm"><span class="px-tag">${M.period(f.period).label}</span><span class="faint">Open items at ${C.snapLabel}</span></div></div>
+          <${P.MaterialMarker} id=${cur} isProfile=${top.t==='profile'} onOpen=${()=> dispatch({ t:'drill', node:{ t:'profile', id:cur, label:M.matLabel(cur) } })} onClear=${f.vendor && f.vendor===cur? ()=> setF(Object.assign({}, f, { vendor:null })) : null}/></header>
+          <${P.PanelBody} depth=${nav.path.length} sig=${nav.path.length+':'+top.t+':'+(top.id||top.key||'')} reset=${M.fkey(f)+nav.path.length}>${body}</${P.PanelBody}></section>`
+        : html`<main class="px-page wide k-teal" aria-label="Supply chain process"><div class="px-page-h"><h1>Supply chain process</h1><p>${'Where stock breaks between forecast and dispatch, the value at stake, the materials responsible and the root causes. Illustrative data. '+M.period(f.period).label+' · open items as at '+C.snapLabel+'.'}</p></div>
+          <${Root} f=${f} nav=${nav} dispatch=${dispatch}/></main>`}</div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+/* if the screen has not rendered after 8 s, say why instead of showing "Loading" forever */
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.SCM? 'The SC data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Executive view | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+<!-- d3-geo and topojson draw the globe view; if the CDN is blocked the Map / Globe toggle hides itself -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="../../data/o2c/master.js"></script><script src="../../data/o2c/ledger.js"></script><script src="../../assets/js/o2c/o2c-model.js"></script>
+<script src="../../data/r2r/master.js"></script><script src="../../data/r2r/ledger.js"></script><script src="../../assets/js/r2r/r2r-model.js"></script>
+<script src="../../data/sc/master.js"></script><script src="../../data/sc/ledger.js"></script><script src="../../assets/js/sc/sc-model.js"></script>
+<script src="../../assets/js/exec/exec-globe.js"></script>
+</head>
+<body class="px-full" data-page="home/desk" data-root="../../">
+<div id="app"><p style="padding:24px">Loading the executive view…</p></div>
+<script src="../../assets/js/exec/exec-home.js"></script>
+<script>
+/* if the screen has not rendered after 8 s, say why instead of showing "Loading" forever */
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload. If it persists, run <code>node server.js</code> in the project folder and open the page from there.</div>'; }, 8000);
+</script>
+</body>
+</html>

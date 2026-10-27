@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Findings | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../assets/js/cmp/cmp-preview.js"></script>
+</head>
+<body class="px-full" data-page="cmp/issues" data-root="../../">
+<script>try{ if((localStorage.getItem("fct-p2p-theme")||"dark")==="light") document.body.classList.add("theme-light"); }catch(e){}</script>
+<div id="app"><p style="padding:24px">Loading Findings…</p></div>
+<script>
+/* DESIGN PREVIEW of Compliance step 4: Findings, "Are we fixing what the auditor told us?" */
+(function(){
+  const P = P2P, html = P.html, R = P.R, COL = P.COL, FCT = window.FCT, C = CMPV, D = C.D;
+  const F = D.findings, open8 = F.length, over = F.filter(f=> f[5]>0), rep = F.filter(f=> f[6]);
+  const themes = ['Evidence','Approval','Access (SoD)','Segregation'].map(t=> ({ t, rep:F.filter(f=> f[7]===t && f[6]).length, now:F.filter(f=> f[7]===t && !f[6]).length }));
+  const cl = D.closure, net = cl.opened.map((o,i)=> cl.opened.slice(0,i+1).reduce((a,b)=>a+b,0) - cl.closed.slice(0,i+1).reduce((a,b)=>a+b,0));
+  const bal = net.map(v=> open8 - net[net.length-1] + v);   /* open at each month end; Sep = today's 8 */
+  /* demo: what closes each finding */
+  /* how each finding closes: what it is about, the exact steps with owner and date, and the evidence the auditor accepts */
+  const CLOSE = {
+    'F-2026-031':{ about:'The statutory auditor wants proof that GRNI (goods received, not yet invoiced) balances are reviewed every month. The tower now captures the review data from July, but no one has signed it.',
+      steps:[['Sign the July and August GRNI reviews in the tower','Manish Gupta','09-Oct'],['Sign the September review at close','Manish Gupta','10-Oct'],['Send the signed Jul–Sep pack to the auditor with "Close with evidence"','Compliance','12-Oct']],
+      proof:'Three signed monthly GRNI reviews, Jul–Sep (CMP-REM-06).' },
+    'F-2026-034':{ about:'One AP user at IN-03, pnair.in03, can both create vendors and approve payments, and used it on 14 and 22 Sep (₹18.7 L to V-310992).',
+      steps:[['Remove Payment run approve from pnair.in03 (ACR-2291)','Sameer Khan','08-Oct'],['Internal Audit reviews the vendor creation and the ₹18.7 L payment','Internal audit','15-Oct'],['Add the create / approve rule to access provisioning so it cannot recur','Sameer Khan','10-Oct']],
+      proof:'Access log showing the right removed, the Internal Audit memo and the new provisioning rule (CMP-SOD-01).' },
+    'F-2026-038':{ about:'IN-07 must confirm its intercompany balances with IN-01 every month. August was sent on 24-Sep, 14 days late; the September confirmation of the ₹6.42 Cr receivable (8 items) has not been sent.',
+      steps:[['Send the September confirmation to IN-01 and agree the 8 items','Anjali Kulkarni','06-Oct'],['Match the replies to the ledger and explain differences','Anjali Kulkarni','13-Oct'],['Move sending to the second working day (WD2) in the close calendar','Arjun Rao','31-Oct']],
+      proof:'Signed confirmations from all 10 counterparties for September, with differences explained (CMP-FND-09).' },
+    'F-2026-041':{ about:'Manual journals at IN-07 were posted without supporting documents. 11 September journals (accruals, reclasses, provisions, a prepaid release and a write-back) have none.',
+      steps:[['Attach support to the 11 journals','IN-07 preparers, Arjun Rao','10-Oct'],['Make an attachment mandatory for manual journals above ₹5 L','Arjun Rao','10-Oct (IT window)'],['Run October with no unsupported journal','Arjun Rao','31-Oct']],
+      proof:'Support for the 11 journals and one full month (October) with no journal posted without it (CMP-FND-10).' },
+    'F-2026-046':{ about:'At US-01 one billing analyst, tbrown.us01, can raise a customer credit limit alone. 6 limits were raised in Q2 with no second approval.',
+      steps:[['Configure a second approver for credit-limit changes','Tom Brennan','15-Oct'],['Get the 6 Q2 overrides approved after the fact by the US-01 controller','Tom Brennan','15-Oct']],
+      proof:'System setting showing the second approval, and the 6 retrospective approvals (CMP-FND-11).' },
+    'F-2026-049':{ about:'Under the GST job-work provisions, goods sent to job workers for processing must generally be returned to the principal within one year, unless the applicable conditions provide otherwise. If they are not returned in that period, the original dispatch may be treated as a supply, with GST and interest payable. 27 challans covering goods worth ₹0.6 Cr are older than 365 days and need reconciliation: 17 with Deccan Pharma Services (IN-04) and 10 with Sai Process Works (IN-03).',
+      steps:[['Identify all challans over 365 days and reconcile the quantities still held by each job worker.','Meera Joshi','15-Oct'],
+        ['Obtain written stock confirmations from Deccan Pharma Services (17 challans, IN-04) and Sai Process Works (10 challans, IN-03).','Meera Joshi','20-Oct'],
+        ['Arrange the return of outstanding goods, discharge any GST and interest due on goods not returned, and correct the ITC-04 records.','Meera Joshi','25-Oct']],
+      proof:'Signed stock confirmations from Deccan Pharma Services and Sai Process Works, the GST payment challan for any liability on goods not returned, and the corrected ITC-04 records (CMP-FND-12).' },
+    'F-2026-044':{ about:'At IN-05 the storekeeper who holds the stock, stk.in05.07, also counted it (28–30 Sep), so a shortage could be hidden. That count found ₹1.86 Cr short (SC-CNT-04).',
+      steps:[['Name an independent counter from finance for each store','Farhan Qureshi','10-Oct'],['Run the October count with the finance counter and stk.in05.07, both signing each sheet','Farhan Qureshi','31-Oct']],
+      proof:'October count sheets signed by the custodian and an independent finance counter (CMP-FND-13).' },
+    'F-2026-047':{ about:'On 01-Sep an IT administrator, sys.admin02, widened the IN-05 three-way-match tolerance from ±2% to ±5% without a change ticket; 8 invoices were then force-matched (₹3.15 L).',
+      steps:[['Restore the ±2% tolerance','Vikram Shah','08-Oct'],['Review the 14 Q2 overrides and recover any overpayment','Vikram Shah','15-Oct'],['Put tolerance changes under maker-checker with a finance approver','Sameer Khan','31-Oct']],
+      proof:'Configuration log showing ±2% restored, the override review, and the maker-checker setting (CMP-FND-14).' } };
+  const status = (f)=> f[5]>0? html`<${C.Pill} tone="r">${f[5]} days overdue</${C.Pill}>` : html`<${C.Pill} tone="a">In progress</${C.Pill}>`;
+
+  const Board = ({ open })=> html`
+    <${C.Sec} c="ctl" icon="FileWarning" title="Are we fixing what the auditor told us?" sub="Auditor, internal audit and monitoring findings, and whether fixes are on time."
+      right=${html`<${C.Pill} tone="r">${over.length} of ${open8} overdue</${C.Pill}><${C.Pill} tone="a">${rep.length} of ${open8} repeat</${C.Pill}>`}>
+      <div class="px-hero3-g" style=${{gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))'}}>
+        <${C.RCard} k="k-violet" title="Open findings" icon="FileWarning" basis="As at 05-Oct" value=${open8} chip=${html`<${C.Pill} tone="r">${over.length} of ${open8} overdue</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Open findings by status" parts=${[{ l:'Overdue', v:over.length, c:COL.crit }, { l:'In progress', v:open8-over.length, c:'var(--px-medium)' }]}/>`}
+          note="8 findings are open. Each overdue finding costs 1 health point and every other open finding 0.5, so findings cost 6 points in total." foot=${[['Overdue', over.length, 'r'], ['Repeat', rep.length, 'r'], ['Points lost', '6.0', 'r']]}/>
+        <${C.RCard} k="k-violet" title="Oldest overdue" icon="Clock" basis="As at 05-Oct" value="41 days" tone="crit" chip=${html`<${C.Pill} tone="r">Repeat finding</${C.Pill}>`}
+          viz=${html`<${P.BarList} label="Days overdue" rows=${over.map(f=> ({ key:f[0], label:f[0], val:f[5] }))} fmt=${(v)=> v+' d'} limit=${4}/>`}
+          note="F-2026-031 (GRNI review evidence) was due on 25-Aug. The tower now files the evidence monthly, so it can be closed." foot=${[['Due', '25-Aug'], ['Raised by', 'Statutory'], ['Fix', 'CMP-REM-06']]}/>
+        <${C.RCard} k="k-green" title="Fixes on time" icon="Check" basis="Q2 FY27" value="92%" chip=${html`<${C.Pill} tone="a">138 of 150</${C.Pill}>`}
+          viz=${html`<div class="px-bullet" role="img" aria-label="Fixes on time 92% against target 95%, scale 80–100%"><i style=${{ width:'60%', background:'var(--px-medium)' }}/><b style=${{ left:'75%' }} title="Target 95%"/></div>
+            <div class="sub" style=${{display:'flex', justifyContent:'space-between', fontSize:'11px'}}><span>80%</span><span>Target 95%</span><span>100%</span></div>`}
+          note="138 of 150 fix actions due in Q2 FY27 (Jul–Sep) were closed on time. This area scores 18.4 of 20 points." foot=${[['Due', '150'], ['On time', '138'], ['Late', '12', 'a']]}/>
+        <${C.RCard} k="k-amber" title="Repeat findings" icon="RotateCcw" basis="As at 05-Oct" value=${rep.length} tone="crit" chip=${html`<${C.Pill} tone="r">of ${open8} open</${C.Pill}>`}
+          viz=${html`<${C.SegBar} label="Repeat findings by theme" parts=${themes.filter(t=> t.rep).map((t,i)=> ({ l:t.t, v:t.rep, c:P.CAT_COL[i] }))}/>`}
+          note=${rep.length+' of the '+open8+' open findings were raised in an earlier audit. Evidence gaps repeat most ('+themes[0].rep+').'} foot=${themes.filter(t=> t.rep).map(t=> [t.t, t.rep])}/>
+      </div></${C.Sec}>
+    <${C.Sec} c="kpi" icon="TrendingUp" title="Opened and closed" sub="Opened vs closed per month, Apr–Sep; the line is open at month end."><div class="px-brow">
+      <${C.Card} k="k-violet" icon="TrendingUp" title="Findings opened and closed by month">
+        <${P.ChartBox} height=${220} label="Findings opened and closed by month" table=${P.mini(['Month','Opened','Closed','Open at month end'], cl.m.map((m,i)=>[m, cl.opened[i], cl.closed[i], bal[i]]))}>
+          <${R.ComposedChart} data=${cl.m.map((m,i)=>({ m, o:cl.opened[i], c:cl.closed[i], bal:bal[i] }))} margin=${{top:10,right:12,left:0,bottom:4}}>
+            <${R.CartesianGrid} vertical=${false} stroke="var(--px-grid)"/><${R.XAxis} dataKey="m" ...${C.axis}/><${R.YAxis} allowDecimals=${false} width=${30} ...${C.axis}/>
+            <${R.Tooltip} content=${C.Tip((v)=> v)}/>
+            <${R.Bar} dataKey="o" name="Findings opened" fill=${COL.high} radius=${[3,3,0,0]} isAnimationActive=${false}/><${R.Bar} dataKey="c" name="Findings closed" fill=${COL.pos} radius=${[3,3,0,0]} isAnimationActive=${false}/>
+            <${R.Line} dataKey="bal" name="Still open at month end" stroke=${COL.brass} strokeWidth=${2} dot=${{r:3}} isAnimationActive=${false}/></${R.ComposedChart}></${P.ChartBox}>
+        <${C.Legend} items=${[['Findings opened', COL.high], ['Findings closed', COL.pos], ['Still open at month end', COL.brass]]}/></${C.Card}>
+      <${C.Card} k="k-violet" icon="Layers" title="Open findings by theme">
+        <${P.ChartBox} height=${220} label="Open findings by theme, repeat and new" table=${P.mini(['Theme','Repeat','New'], themes.map(t=>[t.t, t.rep, t.now]))}>
+          <${R.BarChart} layout="vertical" data=${themes} margin=${{top:4,right:20,left:0,bottom:4}}>
+            <${R.CartesianGrid} horizontal=${false} stroke="var(--px-grid)"/><${R.XAxis} type="number" allowDecimals=${false} ...${C.axis}/><${R.YAxis} type="category" dataKey="t" width=${90} ...${C.axis}/>
+            <${R.Tooltip} content=${C.Tip((v)=> v+' findings')}/>
+            <${R.Bar} dataKey="rep" name="Repeat findings" stackId="a" fill=${COL.crit} isAnimationActive=${false}/><${R.Bar} dataKey="now" name="New findings" stackId="a" fill="var(--px-medium)" radius=${[0,3,3,0]} isAnimationActive=${false}/></${R.BarChart}></${P.ChartBox}>
+        <${C.Legend} items=${[['Repeat findings (raised before)', COL.crit], ['New findings', 'var(--px-medium)']]}/></${C.Card}>
+    </div></${C.Sec}>
+    <${SrcSec} F=${F} open=${open} status=${status}/>
+    `;
+
+  /* who raised each finding, and on what rhythm: the register is grouped by source so last year's auditor points,
+     this year's internal audit, tax reviews and the tower's own monitoring are never confused */
+  const SRC = [ ['Statutory auditor', 'Annual', 'Last year’s statutory audit (FY26), still open'],
+    ['Internal audit', 'Quarterly', 'Our internal audit team, Q1 and Q2 this year'],
+    ['Indirect tax review', 'Periodic', 'GST and indirect tax review this year'],
+    ['Controls monitoring', 'Continuous', 'Raised by the tower from live control testing'] ];
+  const srcOf = (f)=> f[2].split(',')[0];
+  const THEME_COL = { Evidence:'var(--px-brand2)', Approval:COL.high, 'Access (SoD)':COL.crit, Segregation:'var(--px-medium)' };
+  const SrcSec = ({ F, open, status })=>{ const [pick, setPick] = React.useState(null), rows = F.filter(f=> !pick || srcOf(f)===pick);
+    const groups = SRC.map(([s,rh,d])=> ({ s, rh, d, fs:rows.filter(f=> srcOf(f)===s) })).filter(g=> g.fs.length);
+    return html`<${C.Sec} c="exc" icon="ListChecks" title="Findings register" sub="Grouped by who raised them. A finding says a control does not work; each has a fix case to decide. Live exceptions sit in Investigations, not here.">
+      <div style=${{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'10px', marginBottom:'14px'}}>
+        ${SRC.map(([s,rh,d])=>{ const fs = F.filter(f=> srcOf(f)===s), on = pick===s, rp = fs.filter(f=> f[6]).length, od = fs.filter(f=> f[5]>0).length;
+          return html`<button key=${s} type="button" onClick=${()=> setPick(on? null : s)} aria-pressed=${on} style=${{textAlign:'left', padding:'12px', borderRadius:'10px', cursor:'pointer', color:'inherit', font:'inherit',
+              background:on? 'color-mix(in srgb, var(--px-brand2) 14%, transparent)' : 'var(--well, transparent)', border:'1px solid '+(on? 'var(--px-brand2)' : 'var(--card-line, var(--px-line))')}}>
+            <div style=${{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}><b>${s}</b><${C.Pill}>${rh}</${C.Pill}></div>
+            <div style=${{fontSize:'26px', fontWeight:700, margin:'6px 0 2px'}} class="num">${fs.length}</div>
+            <div class="sub">${d}</div>
+            <div class="sub" style=${{marginTop:'4px'}}>${od? od+' overdue' : 'none overdue'} · ${rp? rp+' repeat' : 'no repeats'}</div></button>`; })}
+      </div>
+      ${pick && html`<div style=${{display:'flex', gap:'8px', alignItems:'center', marginBottom:'8px'}}><${C.Pill} tone="a">Showing ${C.pl(rows.length,'finding')} raised by ${pick}</${C.Pill}><button type="button" class="btn sm ghost" onClick=${()=> setPick(null)}>Show all</button></div>`}
+      <section class="px-kc px-exc"><div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Finding</th><th>Theme</th><th>Process</th><th>Due</th><th>Status</th><th>Repeat</th><th class="r">Points lost</th><th>Fix case</th></tr></thead>
+        <tbody>${groups.map(g=> html`<${React.Fragment} key=${g.s}>
+          <tr><td colspan="8" style=${{paddingTop:'12px', fontWeight:600, color:'var(--px-ink2)'}}>${g.s} <span class="faint" style=${{fontWeight:400}}>· ${g.rh} · ${g.d}</span></td></tr>
+          ${g.fs.map(f=> html`<tr key=${f[0]} class="sel" tabIndex="0" onClick=${()=> open({ kind:'Finding', label:f[0], f })}><td>${f[1]}<div class="sub">${f[0]} · ${f[2]}</div></td>
+            <td><span class="px-pill" style=${{background:'color-mix(in srgb, '+(THEME_COL[f[7]]||'var(--px-ink3)')+' 20%, transparent)'}}>${f[7]}</span></td><td>${f[3]}</td><td>${f[4]}</td><td>${status(f)}</td><td>${f[6]? 'Yes' : 'No'}</td>
+            <td class="r num">${f[5]>0? '1.0' : '0.5'}</td><td class="r" style=${{whiteSpace:'nowrap'}}><span class="faint" style=${{marginRight:'6px'}}>${f[8]}</span>${C.decide(f[8])}</td></tr>`)}</${React.Fragment}>`)}
+          ${!pick && html`<tr><td><b>Total</b></td><td/><td/><td/><td/><td/><td class="r num"><b>6.0</b></td><td/></tr>`}</tbody></table></div></section></${C.Sec}>`; };
+  const Detail = ({ path })=>{ const f = path[0].f;
+    return html`<${C.Sec} c="ctl" icon="FileWarning" title=${f[1]} sub=${f[0]+' · '+f[2]+' · '+f[3]} right=${html`${status(f)}${C.decide(f[8])}`}><div class="px-brow">
+      <${C.Card} k="k-violet" icon="Info" title="The finding"><div class="px-tbl"><table class="t px-t dense"><tbody>${[['Raised by', f[2]], ['Process', f[3]], ['Theme', f[7]], ['Due', f[4]], ['Status', f[5]>0? f[5]+' days overdue' : 'In progress'], ['Repeat', f[6]? 'Yes: raised in an earlier audit' : 'No'], ['Health cost', f[5]>0? '1.0 point' : '0.5 point'], ['Root cause', html`<span style=${{whiteSpace:'normal'}}>${C.rcOf(f[8]) || '—'}</span>`], ['Owner', C.who(((FCT.ex && FCT.ex(f[8])) || {}).owner)], ['Fix case', f[8]||'Owner action plan']].map(([k,v])=> html`<tr key=${k}><td>${k}</td><td>${v}</td></tr>`)}</tbody></table></div></${C.Card}>
+      <${C.Card} k="k-violet" icon="Check" title="How it closes">${(()=>{ const c = CLOSE[f[0]]; if(!c) return html`<${C.AI}>Closes when the owner files the fix evidence and Compliance accepts it.</${C.AI}>`;
+          return html`<p style=${{margin:'0 0 10px'}}><b>What it is about:</b> ${c.about}</p>
+            <div class="px-tbl"><table class="t px-t dense"><thead><tr><th>Action</th><th>Owner</th><th>Deadline</th></tr></thead><tbody>${c.steps.map((x,i)=> html`<tr key=${i}><td style=${{whiteSpace:'normal'}}>${i+1}. ${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td></tr>`)}</tbody></table></div>
+            <p style=${{margin:'10px 0 0'}}><b>Closure evidence.</b> ${c.proof}</p>
+            <${C.AI}>${f[5]>0? 'Closing it adds 1 health point.' : 'Closing it adds 0.5 health point.'}${f[0]==='F-2026-034'? ' Removing the used conflict also adds 4 points to Access conflicts.' : ''} An extension moves the due date but is logged.</${C.AI}>
+            ${C.decide(f[8])}`; })()}</${C.Card}></div></${C.Sec}>`; };
+  C.page({ tab:'story', step:'4', accent:'k-violet', root:{ kind:'Compliance', label:'Findings register', icon:'FileWarning' }, Board, Detail });
+})();
+</script>
+</body>
+</html>

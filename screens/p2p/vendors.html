@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vendor profiles | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<link rel="stylesheet" href="../../assets/vendor/leaflet/leaflet.css">
+<script src="../../assets/vendor/leaflet/leaflet.js"></script>
+<!-- MapLibre GL 5.6.0 (BSD-3) draws the full-width vendor map; the base map style comes from CARTO -->
+<link rel="stylesheet" href="../../assets/vendor/maplibre/maplibre-gl.css">
+<script src="../../assets/vendor/maplibre/maplibre-gl.js"></script>
+<script src="../../assets/js/map/map-card.js"></script>
+<script src="../../assets/js/portfolio/portfolio.js"></script>
+</head>
+<body data-page="p2p/vendors" data-root="../../">
+<div id="app"><p style="padding:24px">Loading vendor profiles…</p></div>
+<script>
+/* Vendor profiles: the vendor portfolio (shared portfolio module, P2P adapter below) and the full Vendor Profile for any vendor.
+   Breadcrumb: Vendor portfolio › group › Vendor › document or case. */
+(function(){
+  const { html, h, R, COL, Icon, cx } = P2P, P = P2P, M = P2PM, C = M.C, FCT = window.FCT;
+  const { useState, useEffect, useRef, Fragment } = React;
+  const { cr, amt, pct } = P, N = P.node;
+  const profile = (id)=> ({ t:'profile', id, label:M.V[id].name });
+
+  /* the page body is the shared portfolio (assets/js/portfolio/portfolio.js); this adapter tells it about P2P vendors */
+  const THEMES = [
+    { id:'apr', name:'Requisition and approval', codes:['prLate','prSplit','prSlow','aprAfter','aprLevel','aprNone'], why:'Spend committed late, split or without the right sign-off' },
+    { id:'po', name:'PO compliance', codes:['noPo','retroPo','stalePo'], why:'Bought without a PO, or the PO raised after the invoice' },
+    { id:'price', name:'Price and contract leakage', codes:['ctNotLoaded','priceVar','qtyVar','uom','dup'], why:'Paying more than agreed, or paying twice' },
+    { id:'rcv', name:'Delivery and receipts', codes:['grLate','grMissing','delLate','grniAged'], why:'Goods late, or received and not recorded' },
+    { id:'inv', name:'Invoice processing', codes:['capture','coding','iapSla','blocked'], why:'Invoices held up before they can be paid' },
+    { id:'pay', name:'Payment', codes:['payLate','msme','payEarly','bankChg','sod'], why:'Paid late, early, outside MSME terms or past a fraud signal' },
+    { id:'md', name:'Vendor master data', md:true, why:'Vendor details missing or not verified' } ];
+  const CASE_THEME = { price:'price', ctl:'price', tol:'price', uom:'price', dup:'price', qty:'rcv', bank:'pay', adv:'pay', msme:'pay', sod:'pay', apr:'apr', nopo:'po' };
+  const recVal = (x)=> x.amt!=null? x.amt : x.rem!=null? x.rem : x.val||0;
+  const normCase = (c)=> ({ id:c.id, type:c.type, typeName:M.ETYPE[c.type].name, amount:c.est!=null? c.est : (c.affected||0), measure:M.statusMeasure(c.stNow), stName:M.statusName(c.stNow), age:Math.max(0, Math.floor(M.SNAP - c.opened)), ex:c.ex });
+  const T = {
+    mapStage:true, noun:'vendor', nounPl:'vendors', idLabel:'Vendor ID', profileLabel:'Vendor profile', segLabel:'Vendor segment', caseIdEg:'PX-26122', processHref:'screens/p2p/process.html',
+    valName:'Spend', valShort:'spend', scatterTitle:'Risky spend', noAxisLabel:true, peerChart:true, valWhen:(fs)=> M.period(fs.period).label, secName:'Overdue to pay', secShort:'Overdue',
+    riskCats:C.risk.cats.map(c=> c.id), riskDefs:C.risk.defs, regions:M.GEO_REGIONS, segs:M.SEGS, themes:THEMES, caseTheme:CASE_THEME,
+    recs:(fs)=> M.vendorsIn(fs), byId:(id)=> M.V[id], fkey:M.fkey,
+    val:(fs)=>{ const o = {}; M.topVendors(fs).rows.forEach(r=> o[r.v] = r.spend); return o; },
+    sec:(fs)=>{ const o = {}; M.overdue(fs).forEach(l=> o[l.v] = (o[l.v]||0) + l.amt); return o; },
+    exposure:(fs)=>{ const o = {}; M.cases(fs).forEach(c=>{ if(M.statusMeasure(c.stNow)==='potential' && c.est) o[c.v] = (o[c.v]||0) + c.est; }); return o; },
+    risk:(id)=>{ const r = M.risk(id); return { cat:r.approved, score:r.score, why:P.vt(r.esc || (r.factors.filter(x=> x.v!=null).sort((a,b)=> b.v-a.v)[0]||{}).why || '') }; },
+    seg:(id)=> M.segment(id), sub:(v)=> (v.geo? v.geo.city : v.bu)+' · '+(M.segment(v.id)||'—')+' · '+M.CAT[v.cat].name,
+    tags:(id)=>{ const v = M.V[id]; return [v.sole && ['Sole source','a'], v.msme && ['MSME']].filter(Boolean); },
+    stages:(fs, ids)=>{ const S = M.chainScope(fs); return C.stages.map(s=> ({ id:s.id, name:s.name, q:s.q, n:S[s.id].n, val:S[s.id].val, nv:Object.keys(S[s.id].vendors).filter(v=> ids.has(v)).length })); },
+    issueRecs:(fs)=>{ const S = M.chainScope(fs), out = []; C.stages.forEach(st=> Object.values(S[st.id].issues).forEach(r=> r.recs.forEach(({ x })=> out.push({ code:r.code, name:M.issue(r.code).name, ent:x.v, id:x.id, val:recVal(x) })))); return out; },
+    mdFails:(fs)=> M.facts('mdq', fs).filter(x=> x.ok===false).map(x=> ({ ent:x.v, name:x.g.check })),
+    issueName:(c)=> M.issue(c).name, recLabel:(id)=>{ try{ return N.doc(id).label; }catch(e){ return id; } },
+    cases:(id, fs)=> M.vendor(id, fs).cases.map(normCase),
+    caseInfo:(id)=>{ const c = M.case(id); return c && { typeName:M.ETYPE[c.type].name, rec:c.v, recName:M.V[c.v].name }; },
+    caseView:(id, h2)=> html`<${P.CaseView} key=${id} id=${id} onDoc=${h2.onDoc} onVendor=${h2.onRec} onCase=${h2.onCase}/>`,
+    tower:'p2p', towerName:'P2P',
+    issueKind:(c)=> M.issue(c).kind, issueStage:(c)=> (M.stage(M.issue(c).stage)||{}).name, factors:(id)=> M.risk(id).factors, caseLines:(id)=> (M.case(id)||{}).lines||[],
+    trend:(id, fs)=>{ const b = M.vendor(id, fs).byM||[]; return { name:'Spend by month', fmt:(x)=> P.cr(x,1), tick:(x)=> '₹'+FCT.n(x,0), data:C.months.map((m,i)=> ({ m:m.slice(0,3), v:+(b[i]||0).toFixed(2) })) }; },
+    docView:(id, h2)=> html`<${P.DocView} key=${id} id=${id} onVendor=${h2.onRec} onCase=${h2.onCase} act=${h2.act} theme=${h2.theme}/>`,
+    heat:(fs)=> M.heat(fs, 12), getScope:(fs)=> fs, setScope:(fs, o)=> Object.assign({}, fs, o) };
+  const PF = FCTPortfolio.make(P, T);
+
+  function VendorGroup({ f, nav, dispatch }){
+    const top = M.nav.top(nav);
+    let vs = top.dim==='risk'? M.vendorsIn(f).filter(v=> M.risk(v.id).approved===top.key) : top.dim==='check'? M.vendorsIn(f).filter(v=> (v.md||{})[C.mdChecks.find(c=>c[1]===top.key)[0]]===false)
+      : top.dim==='city'? M.vendorsIn(f).filter(v=> v.geo && v.geo.region+'|'+v.geo.city===top.key) : top.dim==='region'? M.vendorsIn(f).filter(v=> v.geo && v.geo.region===top.key) : [];
+    if(top.risks) vs = vs.filter(v=> top.risks.includes(M.risk(v.id).approved));
+    const tv = M.topVendors(f), sp = {}; tv.rows.forEach(r=> sp[r.v] = r.spend);
+    return html`<${P.Card} title=${top.label} sub=${vs.length+' vendors. Double-click, press Enter or use › to open a profile.'} className="flush">
+      <${P.Table} cols=${[{ k:'n', l:'Vendor', fmt:(v)=> html`<b>${v.name}</b><div class="sub">${v.id}</div>`, sv:(v)=>v.name }, { k:'c', l:'Category', fmt:(v)=> M.CAT[v.cat].name, sv:(v)=>v.cat }, { k:'b', l:'BU', fmt:(v)=>v.bu, sv:(v)=>v.bu },
+        { k:'r', l:'Risk', fmt:(v)=> html`<${P.RiskTag} cat=${M.risk(v.id).approved} score=${M.risk(v.id).score} small=${true}/>`, sv:(v)=> M.risk(v.id).score }, { k:'s', l:'Period spend', r:true, fmt:(v)=> cr(sp[v.id]||0), sv:(v)=> sp[v.id]||0 }]}
+        rows=${vs.sort((a,b)=> M.risk(b.id).score - M.risk(a.id).score)} rowKey=${(v)=>v.id} caption=${top.label} onOpen=${(v)=> dispatch({ t:'drill', node:profile(v.id) })}/></${P.Card}>`;
+  }
+
+  function App(){
+    const [fs, setF, pending] = P.useFilters('f'), f = M.unscope(fs);
+    const [nav, dispatch0] = P.useNav('vendors', ['vendors'], 'Vendor portfolio');
+    const dispatch = P.guard(dispatch0);
+    const top = M.nav.top(nav), cur = M.nav.vendor(nav, null);
+    const goDoc = (id)=> dispatch({ t:'drill', node:N.doc(id) }), goCase = (id)=> dispatch({ t:'drill', node:N.case(id) }), goV = (id)=> dispatch({ t:'drill', node:profile(id) });
+    let body = null;
+    if(top.t==='group') body = html`<${VendorGroup} f=${fs} nav=${nav} dispatch=${dispatch}/>`;
+    else if(top.t==='profile' || top.t==='vendor') body = html`<${PF.Profile} id=${top.id} f=${f} onDoc=${goDoc} onCase=${goCase}/>`;
+    else if(top.t==='doc') body = html`<${P.DocView} id=${top.id} onVendor=${goV} onCase=${goCase}/>`;
+    else if(top.t==='case') body = html`<${P.CaseView} id=${top.id} onDoc=${goDoc} onVendor=${goV} onCase=${goCase}/>`;
+    const title = cur && (top.t==='profile' || top.t==='vendor')? M.V[cur].name : top.label;
+    const detail = nav.path.length>1;
+    return html`<div class="px-scr k-amber"><${P.ScreenTabs} on="vendors" right=${html`<${P.FilterBar} f=${f} setF=${(n)=> setF(Object.assign({}, n, { pRisk:fs.pRisk, pGeo:fs.pGeo, pSeg:fs.pSeg }))} pending=${pending} compact=${true}/>`}/>
+      ${detail && html`<${P.GlobalCrumb} root=${{ kind:'Overview', label:'Vendor portfolio', icon:'Users', go:()=> dispatch({ t:'home' }) }} nav=${nav} dispatch=${dispatch} from=${1} show=${detail}/>`}
+      <div class="px-vws one">
+        ${detail? html`<section class="px-panel px-detail k-amber" aria-label=${title}><header class="px-ph"><div class="px-pt"><div class="px-pt-t"><h1><span class="px-h-i"><${Icon} n=${top.t==='profile'||top.t==='vendor'? 'Building2' : top.t==='doc'? 'FileText' : top.t==='case'? 'Crosshair' : 'Users'} size=${20} strokeWidth=${1.6}/></span>${title}</h1></div>
+              <div class="px-pm"><span class="px-tag">${M.period(f.period).label}</span></div></div>
+            ${top.t!=='profile' && html`<${P.VendorMarker} id=${cur} isProfile=${top.t==='profile'} onOpen=${()=> dispatch({ t:'drill', node:profile(cur) })}/>`}</header>
+            <${P.PanelBody} depth=${nav.path.length} sig=${nav.path.length+':'+top.t+':'+(top.id||top.key||'')} reset=${M.fkey(fs)+nav.path.length}>${body}</${P.PanelBody}></section>`
+        : html`<main class="px-page k-amber vp-page" aria-label="Vendor portfolio"><h1 class="sr">Vendor portfolio</h1>
+          <${PF.Portfolio} f=${f} fs=${fs} setF=${setF} onProfile=${goV} onDoc=${goDoc}/></main>`}</div></div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+/* if the screen has not rendered after 8 s, say why instead of showing "Loading" forever */
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.P2PM? 'The P2P data or engine did not load.' : !window.React? 'The chart and UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Try a hard reload (Option-Command-R in Safari). If it persists, run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>
