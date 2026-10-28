@@ -278,7 +278,7 @@
           <span role="cell" class="v num">${amt(ex.filter(x=> x.tower===t.id).reduce((a,x)=> a+exVal(x), 0))}</span></div>`)}</div>
 </div>
       <aside class="xa-side" aria-label="Exceptions shown">
-      <div class="xa-tabs"><${P.Seg} label="List" value=${tab} onChange=${setTab} options=${[['all','All open ('+ex.length+')'],['cross','Across towers ('+cross.length+')']]}/>
+      <div class="xa-tabs">
         ${cell && html`<button type="button" class="xp-tag" onClick=${()=> setCell(null)}>${cell.t} · ${cell.s}<${Icon} n="X" size=${12}/></button>`}</div>
       <ul class="xa-l">${list.map(x=> html`<li key=${x.id}><button type="button" onClick=${()=> onEx(x.id)}><i class=${'s-'+x.severity}/>
           <span class="t"><b>${x.title}</b><small><span class=${'xa-tw'}>${x.tower}${(x.also||[]).length? ' + '+x.also.join(', ') : ''}</span>${x.entity || 'Group'} · ${userName(x.owner)} · due ${x.due||'—'}</small></span>
