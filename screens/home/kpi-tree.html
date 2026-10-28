@@ -1,0 +1,2338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI tree | FCT</title>
+<meta name="description" content="Tower to segment to KPI to process stage to root cause to decision, across the FCT process towers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
+<script>
+/* Node-only colour palettes. Background is controlled separately below. */
+window.__NODE_PALETTES = {
+ semantic: {
+  name: 'Control Tower',
+  kpi: '#24406E',
+  principle: '#5A3E9E',
+  entity: '#0B6B73',
+  fn: '#8A5300',
+  cause: '#A4231C',
+  pastel: {
+    kpi: '#24406E',
+    principle: '#5A3E9E',
+    entity: '#0B6B73',
+    fn: '#8A5300',
+    cause: '#A4231C'
+  }
+}
+};
+window.__BG_THEMES={
+  light:{name:'White',css:{
+    void:'#FFFFFF',deep:'#FFFFFF',panel:'#FFFFFF',rule:'#DCE1E8',rule2:'#DCE1E8',
+    text:'#121A2B',text2:'#121A2B',text3:'#5B6576',amber:'#24406E',rose:'#A4231C',
+    violet:'#5A3E9E',green:'#0B6B73',ice:'#24406E',teal:'#0B6B73',grey:'#5B6576',
+    ledgerPaper:'#121A2B',ledgerOxide:'#121A2B',ledgerSlate:'#121A2B',ledgerMarg:'#5B6576',
+    ledgerRule:'#DCE1E8',agentPastel:'#5A3E9E'
+  }}
+};
+window.__ACTIVE_NODE='semantic';
+window.__ACTIVE_BG='light';
+window.__NODE=window.__NODE_PALETTES.semantic;
+window.__BG=window.__BG_THEMES.light;
+window.__THEME={
+  name:window.__NODE.name,
+  kpi:window.__NODE.kpi, principle:window.__NODE.principle, entity:window.__NODE.entity,
+  fn:window.__NODE.fn, cause:window.__NODE.cause, pastel:window.__NODE.pastel,
+  css:window.__BG.css
+};
+</script>
+<style>/* ══ THE ESTATE ═══════════════════════════════════════════════════════════
+   An instrument for exploring the S.C.A.L.A knowledge base.
+   Single visual world, deliberately: this is a dark screen you look *into*,
+   not a document that adapts to your OS. Colour is encoding, never mood. */
+
+:root{
+  --void:#000000;          /* ground */
+  --deep:#000000;
+  --panel:#000000;
+  --rule:#333333;
+  --rule-2:#555555;
+  --text:#ffffff;
+  --text-2:#ffffff;
+  --text-3:#ffffff;
+
+  --amber:#ffffff;         /* the money spine: steps, forms, tracks */
+  --rose:#e2557b;          /* authority: DoA, PRG, CER, the gates */
+  --violet:#a98be8;        /* the agent estate */
+  --green:#06D6A0;         /* people */
+  --ice:#4CC9F0;           /* systems */
+  --teal:#06D6A0;          /* SAP objects */
+  --grey:#ffffff;          /* screens */
+
+  /* the ladder — Engineering Ledger, direction B of the moodboard.
+     A second encoding on a second axis: immutability, not kind. Ledger
+     values lifted off the paper so they hold on the dark ground. */
+  --ledger-paper:#ffffff;  /* rank 1 · Principles — immutable */
+  --ledger-oxide:#ffffff;  /* rank 2 · SOP — formal revision only */
+  --ledger-slate:#ffffff;  /* rank 3 · Suggestions — advisory */
+  --ledger-marg:#ffffff;   /* rank 4 · Conventions — freely changed */
+  --ledger-rule:#333333;
+
+  /* the pastel set — see graph-data.js. Used by the force-directed reading,
+     where the saturated encoding above reads as noise in constant motion. */
+  --agent-pastel:#cbbaf0;
+
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --disp:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--void); color:var(--text);
+  font-family:var(--body); overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:1px solid var(--amber);outline-offset:2px}
+
+/* micro-label: the one type gesture the whole instrument is built on */
+.ml{
+  font:400 9.5px/1 var(--mono); letter-spacing:.19em; text-transform:uppercase;
+  color:var(--text-3);
+}
+
+/* ── stage ───────────────────────────────────────────────────────────── */
+#stage{position:fixed;inset:0}
+#c{display:block;width:100%;height:100%;cursor:grab}
+#c.grabbing{cursor:grabbing}
+#c.on-node{cursor:pointer}
+.fixed-graph #c,.fixed-graph #c.grabbing{cursor:default}
+.fixed-graph #c.on-node{cursor:pointer}
+
+/* ── HUD chrome: corner brackets, no borders-all-round ───────────────── */
+.hud{ position:fixed; background:rgba(0,0,0,.82); backdrop-filter:blur(9px); }
+.hud::before,.hud::after{
+  content:""; position:absolute; width:9px; height:9px; pointer-events:none;
+  border:1px solid var(--rule-2);
+}
+.hud::before{ top:-1px; left:-1px; border-right:0; border-bottom:0 }
+.hud::after{ bottom:-1px; right:-1px; border-left:0; border-top:0 }
+
+/* titleblock */
+.title{ top:20px; left:20px; padding:15px 18px 14px; max-width:290px; }
+.title h1{
+  margin:0; font:700 15px/1 var(--disp); letter-spacing:.26em; text-transform:uppercase;
+}
+.title h1 b{ color:var(--amber); font-weight:700 }
+.title p{ margin:9px 0 0; font:400 11px/1.6 var(--mono); color:var(--text-3);
+          letter-spacing:.04em; }
+.title .counts{ margin-top:11px; display:flex; gap:14px; }
+.title .counts span{ font:400 10px/1 var(--mono); letter-spacing:.1em; color:var(--text-3) }
+.title .counts b{ color:var(--text-2); font-weight:400 }
+
+/* legend / filters — the legend does real work: every row is a switch */
+.legend{ top:20px; right:20px; width:216px; padding:14px 0 8px; }
+.legend .ml{ padding:0 16px 10px; display:block; border-bottom:1px solid var(--rule) }
+.lrow{
+  display:flex; align-items:center; gap:10px; width:100%; padding:7px 16px;
+  text-align:left; border-bottom:1px solid var(--rule);
+}
+.lrow:hover{ background:rgba(255,255,255,.03) }
+.lrow .dot{ width:9px; height:9px; border-radius:50%; flex:none; box-shadow:0 0 7px currentColor }
+.lrow .nm{ font:400 11.5px/1 var(--disp); letter-spacing:.04em; flex:1; color:var(--text-2) }
+.lrow .ct{ font:400 10px/1 var(--mono); color:var(--text-3); font-variant-numeric:tabular-nums }
+.lrow[aria-pressed="false"]{ opacity:.34 }
+.lrow[aria-pressed="false"] .dot{ box-shadow:none; background:transparent!important;
+  border:1px solid currentColor }
+
+.legend .states{ padding:12px 16px 4px; display:flex; flex-direction:column; gap:8px }
+.legend .states div{ display:flex; align-items:center; gap:9px;
+  font:400 10px/1.3 var(--mono); letter-spacing:.06em; color:var(--text-3) }
+.legend .states i{ width:9px; height:9px; border-radius:50%; flex:none }
+.st-in{ background:var(--text-2) }
+.st-ctx{ border:1px solid var(--text-3) }
+.st-gap{ border:1px dashed var(--rose) }
+
+
+
+/* ══ GLASS ════════════════════════════════════════════════════════════════
+   Scoped to body.glass — the layered force-directed reading only. Everywhere
+   else the HUD is a hard-edged instrument panel with corner brackets; here it
+   is glass sitting over a lit field, because the picture underneath is soft,
+   pastel and always moving. Frost needs something coloured behind it to
+   refract, so the stage carries a field of slow pastel light. */
+.glass #stage::before{
+  content:""; position:absolute; inset:-12%; pointer-events:none;
+  background:
+    radial-gradient(38vw 38vw at 22% 24%, rgba(203,186,240,.15), transparent 62%),
+    radial-gradient(34vw 34vw at 78% 30%, rgba(177,218,239,.13), transparent 62%),
+    radial-gradient(40vw 40vw at 62% 82%, rgba(171,226,192,.10), transparent 62%),
+    radial-gradient(30vw 30vw at 16% 78%, rgba(242,203,161,.10), transparent 62%);
+  filter:blur(26px);
+}
+
+.glass .hud,
+.glass .switch,
+.glass .pal-box,
+.glass .reader{
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(26px) saturate(1.5);
+  -webkit-backdrop-filter:blur(26px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  box-shadow:0 10px 34px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.13);
+}
+/* the corner brackets belong to the hard-edged pages, not to glass */
+.glass .hud::before, .glass .hud::after{ content:none }
+
+.glass .reader{ border-radius:22px 0 0 22px; border-right:0 }
+.glass .switch{ overflow:hidden }
+.glass .switch a[aria-current="page"]{ background:rgba(255,255,255,.10) }
+.glass .controls{ overflow:hidden }
+.glass .lrow:last-child, .glass .trow:last-child, .glass .frow:last-child{ border-bottom:0 }
+.glass .legend .ml, .glass .ladder .ml, .glass .forces .ml,
+.glass .lrow, .glass .trow, .glass .frow{ border-color:rgba(255,255,255,.07) }
+.glass .controls > *{ border-color:rgba(255,255,255,.07) }
+.glass .rd-head{ border-bottom-color:rgba(255,255,255,.09) }
+@media (prefers-reduced-transparency:reduce){
+  .glass .hud, .glass .switch, .glass .pal-box, .glass .reader{
+    background:rgba(0,0,0,.93); backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  .glass #stage::before{ display:none }
+}
+
+/* ── forces panel (Web) ──────────────────────────────────────────────────
+   The constants of the layout, exposed rather than hidden. Sits under the
+   ladder in the left column. */
+.forces{ top:474px; left:20px; width:262px; padding:13px 0 11px;
+         max-height:calc(100vh - 548px); overflow:auto; }
+.forces .ml{ padding:0 14px 9px; display:block; border-bottom:1px solid var(--rule) }
+.frow{ display:grid; grid-template-columns:72px 1fr 36px; align-items:center;
+       gap:9px; padding:6px 14px; border-bottom:1px solid var(--rule); cursor:pointer }
+.frow span{ font:400 10.5px/1.2 var(--disp); letter-spacing:.03em; color:var(--text-2) }
+.frow output{ font:400 9.5px/1 var(--mono); color:var(--text-3); text-align:right;
+              font-variant-numeric:tabular-nums }
+.frow input[type=range]{ width:100%; accent-color:var(--agent-pastel) }
+.forces .act{ margin:9px 14px 0; padding:7px 9px; width:calc(100% - 28px);
+              border:1px solid var(--rule-2); text-align:center }
+@media (max-height:700px){ .forces{ display:none } }
+
+/* ══ COSMOS ═══════════════════════════════════════════════════════════════
+   Scoped to body.cosmos, which also carries .glass — the frosted HUD is
+   right for this one too, but the field behind it is not a pastel daylight
+   wash. It is deep space: a cold ground, two or three slow clouds of gas at
+   the edges of the visible, and nothing bright enough to compete with the
+   galaxies drawn on the canvas above it. Everything here is CSS on purpose —
+   it sits *behind* the transparent canvas, so it costs nothing per frame. */
+.cosmos{ background:#000000 }
+.cosmos #stage::before{
+  content:""; position:absolute; inset:-20%; pointer-events:none;
+  background:
+    radial-gradient(46vw 46vw at 16% 12%, rgba(126,106,208,.30), transparent 64%),
+    radial-gradient(40vw 40vw at 86% 26%, rgba(60,132,182,.26), transparent 64%),
+    radial-gradient(52vw 52vw at 64% 74%, rgba(162,88,158,.23), transparent 66%),
+    radial-gradient(38vw 38vw at 10% 88%, rgba(54,142,152,.20), transparent 64%),
+    radial-gradient(70vw 70vw at 50% 50%, rgba(18,22,50,.55), transparent 72%);
+  filter:blur(44px);
+}
+/* the deep vignette — the field has to fall off at the edges or the whole
+   page reads as a poster rather than as a plate */
+.cosmos #stage::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 88% at 50% 46%, transparent 42%, rgba(0,0,0,.72) 100%);
+}
+.cosmos .hud, .cosmos .switch, .cosmos .pal-box, .cosmos .reader{
+  background:rgba(0,0,0,.85);
+  border-color:rgba(255,255,255,.12);
+  box-shadow:0 12px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.cosmos .switch a[aria-current="page"]{ color:#ffffff; background:rgba(255,255,255,.10) }
+.cosmos .frow input[type=range]{ accent-color:#b9c6ff }
+
+/* the galaxies panel — the constants of the field, and a way in to each one */
+.galaxies{ top:414px; left:20px; width:262px; padding:12px 0 10px;
+           max-height:calc(100vh - 488px); overflow:auto; }
+.galaxies .ml{ padding:0 14px 8px; display:block; border-bottom:1px solid var(--rule) }
+.galaxies .frow{ padding:5px 14px }
+.galaxies .act{ margin:8px 14px 0; padding:7px 9px; width:calc(100% - 28px);
+                border:1px solid var(--rule-2); text-align:center }
+.gjumps{ padding:8px 14px 3px; display:flex; flex-direction:column; gap:4px }
+.gjump{
+  display:flex; align-items:center; gap:9px; width:100%; padding:5px 8px;
+  border:1px solid transparent; border-radius:9px; text-align:left;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--gc) 13%, transparent), transparent 86%);
+}
+.gjump:hover{ border-color:color-mix(in srgb, var(--gc) 42%, transparent) }
+.gjump .gk{ width:15px; height:15px; flex:none; border-radius:50%;
+            font:400 9px/15px var(--mono); text-align:center; color:#000000;
+            background:var(--gc); box-shadow:0 0 11px color-mix(in srgb, var(--gc) 62%, transparent) }
+.gjump .gn{ flex:1; font:400 11px/1.25 var(--disp); letter-spacing:.02em; color:var(--text-2);
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gjump .gc{ font:400 9.5px/1 var(--mono); color:var(--text-3); font-variant-numeric:tabular-nums }
+@media (max-height:760px){ .galaxies{ display:none } }
+
+/* ══ PLATE ════════════════════════════════════════════════════════════════
+   Scoped to body.plate. The one page that is not an instrument looking into
+   a dark room — it is a print. So: a true black ground with a single cold
+   light falling from the top right, hairline rules everywhere, and chrome
+   pulled down almost to nothing so that the only thing with any ink in it is
+   the plate itself. */
+.plate{ background:#000000 }
+.plate #stage::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(72vw 52vw at 88% -6%, rgba(255,255,255,.075), transparent 62%),
+    radial-gradient(60vw 60vw at 12% 104%, rgba(255,255,255,.045), transparent 60%);
+}
+.plate .hud, .plate .switch, .plate .pal-box{
+  background:rgba(0,0,0,.80); backdrop-filter:blur(7px);
+  border-color:rgba(255,255,255,.11);
+}
+.plate .hud::before, .plate .hud::after{ border-color:rgba(255,255,255,.24) }
+.plate .reader{ background:#000000; border-left-color:rgba(255,255,255,.14) }
+.plate .switch a[aria-current="page"]{ color:#ffffff; background:rgba(255,255,255,.09) }
+.plate .lrow, .plate .trow, .plate .frow, .plate .controls > *,
+.plate .legend .ml, .plate .ladder .ml, .plate .forces .ml{
+  border-color:rgba(255,255,255,.08);
+}
+.plate .seg button[aria-pressed="true"]{ color:#ffffff; background:rgba(255,255,255,.09) }
+
+/* the plate's own control block — same furniture as the forces panel */
+.plate .forces{ top:414px; max-height:calc(100vh - 488px) }
+.plate .forces .seg{ margin:0 0 4px; border-bottom:1px solid rgba(255,255,255,.08) }
+.plate .forces .seg button{ flex:1; padding:9px 6px; letter-spacing:.12em }
+.plate .frow input[type=range]{ accent-color:#e2557b }
+
+/* the stratum band in the reader — set as marginalia on ledger paper */
+.rd-tier{
+  margin-top:16px; padding:11px 13px 12px; border-left:2px solid var(--tc);
+  background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 11%, transparent), transparent 78%);
+}
+.rd-tier .tk{ font:400 9.5px/1 var(--mono); letter-spacing:.19em;
+              text-transform:uppercase; color:var(--tc) }
+.rd-tier .tn{ display:block; margin-top:7px; font:400 14px/1.2 var(--disp);
+              letter-spacing:.01em; color:var(--ledger-paper) }
+.rd-tier .te{ display:inline-block; margin-top:7px; padding:3px 7px;
+              border:1px solid var(--tc); font:400 9px/1 var(--mono);
+              letter-spacing:.15em; text-transform:uppercase; color:var(--tc) }
+.rd-tier .tr{ margin:9px 0 0; font:400 11.5px/1.55 var(--mono);
+              letter-spacing:.02em; color:var(--ledger-marg) }
+
+.readout .rt{ margin-top:6px; font:400 9.5px/1.4 var(--mono); letter-spacing:.15em }
+
+/* control bar */
+.controls{ bottom:20px; left:20px; display:flex; align-items:stretch; }
+.controls > *{ border-right:1px solid var(--rule) }
+.controls > *:last-child{ border-right:0 }
+.seg{ display:flex }
+.seg button{ padding:11px 15px; font:400 10px/1 var(--mono); letter-spacing:.15em;
+             text-transform:uppercase; color:var(--text-3) }
+.seg button[aria-pressed="true"]{ color:var(--amber); background:rgba(255,255,255,.08) }
+.seg button:hover{ color:var(--text) }
+.depth{ display:flex; align-items:center; gap:10px; padding:0 15px }
+.depth label{ font:400 9.5px/1 var(--mono); letter-spacing:.15em; text-transform:uppercase;
+              color:var(--text-3) }
+.depth input{ width:78px; accent-color:var(--amber) }
+.depth output{ font:400 10px/1 var(--mono); color:var(--amber); width:26px }
+.act{ padding:11px 15px; font:400 10px/1 var(--mono); letter-spacing:.15em;
+      text-transform:uppercase; color:var(--text-3) }
+.act:hover{ color:var(--text) }
+.act kbd{ color:var(--rule-2); margin-left:7px }
+
+/* readout — follows the cursor's node */
+.readout{ top:12px; right:20px; width:300px; padding:8px 14px 9px; pointer-events:none; z-index:20 }
+.readout .ml{ display:block; margin-bottom:4px }
+.readout .rn{ font:400 14px/1.25 var(--disp); letter-spacing:.01em; color:var(--text);
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.readout .rs{ margin-top:3px; font:400 10.5px/1.5 var(--mono); color:var(--text-3);
+              letter-spacing:.04em }
+.readout .hint{ font:400 10.5px/1.6 var(--mono); color:var(--text-3); letter-spacing:.03em }
+
+/* variant switcher — six readings of one estate */
+.switch{
+  position:fixed; top:20px; left:50%; transform:translateX(-50%); display:flex;
+  background:rgba(0,0,0,.82); backdrop-filter:blur(9px);
+  border:1px solid var(--rule); z-index:10;
+}
+.switch a{
+  padding:10px 17px; text-decoration:none; color:var(--text-3);
+  font:400 10px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
+  border-right:1px solid var(--rule);
+}
+.switch a:last-child{ border-right:0 }
+.switch a:hover{ color:var(--text) }
+.switch a[aria-current="page"]{ color:var(--amber); background:rgba(255,255,255,.09) }
+
+.variant-blurb{ max-width:33ch }
+
+/* ── reader ──────────────────────────────────────────────────────────── */
+.reader{
+  position:fixed; top:0 ; right:0; bottom:0; width:min(560px,46vw);
+  background:var(--deep); border-left:1px solid var(--rule-2);
+  transform:translateX(101%); transition:transform .34s cubic-bezier(.4,0,.2,1);
+  display:flex; flex-direction:column; z-index:20;
+}
+.reader.open{ transform:none }
+@media (prefers-reduced-motion:reduce){ .reader{ transition:none } }
+.rd-head{ padding:22px 26px 18px; border-bottom:1px solid var(--rule); flex:none }
+.rd-kind{ display:flex; align-items:center; gap:9px }
+.rd-kind i{ width:9px;height:9px;border-radius:50%;box-shadow:0 0 8px currentColor }
+.rd-head h2{ margin:12px 0 0; font:700 27px/1.12 var(--disp); letter-spacing:-.02em }
+.rd-sub{ margin:8px 0 0; font:400 11px/1 var(--mono); letter-spacing:.13em;
+         text-transform:uppercase; color:var(--text-3) }
+.rd-close{ position:absolute; top:20px; right:22px; padding:6px 9px;
+           font:400 10px/1 var(--mono); letter-spacing:.14em; color:var(--text-3) }
+.rd-close:hover{ color:var(--text) }
+.rd-body{ overflow-y:auto; padding:22px 26px 60px; flex:1 }
+.rd-body p.lead{ margin:0; font:400 16px/1.62 var(--body); color:var(--text) }
+
+.rd-sec{ margin-top:28px }
+.rd-sec > .ml{ display:block; padding-bottom:9px; border-bottom:1px solid var(--rule) }
+.ai-suggestion{
+  --suggestion-accent:var(--ice);
+  margin-top:24px; padding:16px 17px 17px;
+  border:1px solid var(--rule); border-left:2px solid var(--suggestion-accent);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--suggestion-accent) 8%, transparent), transparent 72%);
+}
+.ai-suggestion-head{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+.ai-suggestion-label{
+  font:400 9px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
+  color:var(--suggestion-accent);
+}
+.ai-suggestion-badge{
+  padding:5px 7px; border:1px solid color-mix(in srgb, var(--suggestion-accent) 48%, transparent);
+  font:400 8px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-3);
+}
+.ai-suggestion h3{ margin:15px 0 0; font:600 17px/1.3 var(--disp); color:var(--text) }
+.ai-suggestion p{ margin:9px 0 0; font:400 13px/1.6 var(--body); color:var(--text-2) }
+.ai-suggestion ul{ margin:12px 0 0; padding:0; list-style:none }
+.ai-suggestion li{ position:relative; margin-top:8px; padding-left:15px;
+  font:400 12px/1.55 var(--body); color:var(--text-2) }
+.ai-suggestion li::before{ content:""; position:absolute; left:1px; top:.68em;
+  width:6px; height:1px; background:var(--suggestion-accent) }
+.ai-suggestion-check{
+  margin-top:15px!important; padding-top:11px; border-top:1px solid var(--rule);
+  font-size:11px!important; color:var(--text-3)!important;
+}
+.ai-suggestion-check strong{
+  display:block; margin-bottom:5px; font:400 8px/1 var(--mono);
+  letter-spacing:.14em; text-transform:uppercase; color:var(--suggestion-accent);
+}
+.ai-suggestion .ai-suggestion-disclaimer{
+  margin-top:11px; font:400 10px/1.5 var(--body); color:var(--text-3);
+}
+.link{
+  display:flex; gap:11px; align-items:baseline; width:100%; text-align:left;
+  padding:9px 2px; border-bottom:1px solid var(--rule);
+}
+.link:hover{ background:rgba(255,255,255,.03) }
+.link .rel{ font:400 9.5px/1.5 var(--mono); letter-spacing:.09em; text-transform:uppercase;
+            color:var(--text-3); width:106px; flex:none; text-align:right }
+.link .to{ font:400 14px/1.4 var(--body); color:var(--text) }
+.link .dot{ width:7px;height:7px;border-radius:50%;flex:none;position:relative;top:5px }
+
+.rd-open{ margin-top:26px; width:100%; padding:12px; border:1px solid var(--rule-2);
+          font:400 10px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase;
+          color:var(--text-2) }
+.rd-open:hover{ border-color:var(--amber); color:var(--amber) }
+
+/* full chapter prose, rendered from v2/ */
+.sheet-body{ margin-top:26px; border-top:1px solid var(--rule); padding-top:22px;
+             font:400 15px/1.68 var(--body); color:var(--text-2) }
+.sheet-body h2{ margin:34px 0 0; font:700 19px/1.25 var(--disp); letter-spacing:-.01em; color:var(--text) }
+.sheet-body h3{ margin:24px 0 0; font:700 15px/1.3 var(--disp); color:var(--text) }
+.sheet-body h4{ margin:20px 0 0; font:400 10px/1 var(--mono); letter-spacing:.15em;
+                text-transform:uppercase; color:var(--text-3) }
+.sheet-body p{ margin:13px 0 0 }
+.sheet-body strong{ color:var(--text); font-weight:600 }
+.sheet-body em{ color:var(--text-2) }
+.sheet-body a{ color:var(--amber); text-decoration:none; border-bottom:1px solid rgba(255,255,255,.3) }
+.sheet-body hr{ border:0; border-top:1px solid var(--rule); margin:26px 0 0 }
+.sheet-body ul,.sheet-body ol{ margin:13px 0 0; padding-left:0; list-style:none }
+.sheet-body li{ position:relative; padding-left:19px; margin-top:7px }
+.sheet-body ul>li::before{ content:""; position:absolute; left:2px; top:.72em;
+  width:6px; height:1px; background:var(--rule-2) }
+.sheet-body ol{ counter-reset:o }
+.sheet-body ol>li{ counter-increment:o }
+.sheet-body ol>li::before{ content:counter(o,decimal-leading-zero); position:absolute;
+  left:0; top:.1em; font:400 10px/1.7 var(--mono); color:var(--text-3) }
+.sheet-body li.forbid::before{ content:"✗"; width:auto;height:auto;background:none;
+  font:400 12px/1.55 var(--mono); color:var(--rose); top:0 }
+.sheet-body code{ font:400 .86em/1.5 var(--mono); background:var(--panel);
+                  padding:1.5px 4px; color:var(--ice) }
+.sheet-body blockquote{ margin:20px 0 0; padding:14px 16px; background:var(--panel);
+  border-left:2px solid var(--amber) }
+.sheet-body blockquote p:first-child{ margin-top:0 }
+.sheet-body figure{ margin:20px 0 0; border:1px solid var(--rule); background:var(--panel) }
+.sheet-body pre{ margin:0; padding:14px; overflow-x:auto;
+                 font:400 11.5px/1.5 var(--mono); color:var(--text-3) }
+.sheet-body .tw{ margin:20px 0 0; overflow-x:auto; border:1px solid var(--rule) }
+.sheet-body table{ width:100%; border-collapse:collapse; font-size:13px }
+.sheet-body th{ text-align:left; padding:8px 11px; border-bottom:1px solid var(--rule-2);
+  font:400 9.5px/1.3 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+  color:var(--text-3); white-space:nowrap }
+.sheet-body td{ padding:8px 11px; border-bottom:1px solid var(--rule); vertical-align:top }
+.sheet-body .tag{ display:inline-block; font:400 9px/1 var(--mono); letter-spacing:.1em;
+  text-transform:uppercase; padding:3px 5px; border:1px solid currentColor; margin:0 2px }
+.sheet-body .t-in{ color:var(--green) } .sheet-body .t-ctx{ color:var(--ice) }
+.sheet-body .t-off{ color:var(--text-3) }
+.sheet-body .warn{ color:var(--rose); margin-right:.3em }
+.sheet-body .yes{ color:var(--green) } .sheet-body .no-m,.sheet-body .dot{ color:var(--rose) }
+.sheet-body .ext{ font:400 .85em/1 var(--mono); color:var(--text-3); word-break:break-all }
+
+/* ── command palette ─────────────────────────────────────────────────── */
+.palette{ position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.72);
+          display:flex; justify-content:center; padding:13vh 20px 20px }
+.palette[hidden]{ display:none }
+.pal-box{ width:100%; max-width:560px; height:max-content; max-height:70vh;
+  background:var(--deep); border:1px solid var(--rule-2); display:flex; flex-direction:column }
+#pq{ width:100%; padding:17px 20px; background:none; border:0;
+     border-bottom:1px solid var(--rule); color:var(--text);
+     font:400 16px/1 var(--body) }
+#pq:focus{ outline:0 }
+#presults{ overflow-y:auto }
+.pres{ display:flex; gap:11px; align-items:center; width:100%; text-align:left;
+       padding:11px 20px; border-bottom:1px solid var(--rule) }
+.pres .dot{ width:8px;height:8px;border-radius:50%;flex:none }
+.pres .pn{ font:400 14px/1.3 var(--body); color:var(--text); flex:1 }
+.pres .pt{ font:400 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+           color:var(--text-3) }
+.pres.on,.pres:hover{ background:rgba(255,255,255,.09) }
+.pal-foot{ padding:9px 20px; border-top:1px solid var(--rule);
+           font:400 9.5px/1.8 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+           color:var(--text-3) }
+.pal-empty{ padding:20px; color:var(--text-3); font:400 13px/1.5 var(--body) }
+
+/* ── first-run cue, retired after one interaction ────────────────────── */
+.cue{ position:fixed; left:50%; bottom:92px; transform:translateX(-50%);
+      font:400 10px/1 var(--mono); letter-spacing:.19em; text-transform:uppercase;
+      color:var(--text-3); pointer-events:none; transition:opacity .6s }
+.cue.gone{ opacity:0 }
+
+@media (max-width:900px){
+  .legend{ display:none }
+  .ladder{ display:none }
+  .readout{ display:none }
+  .title{ max-width:210px; padding:12px 14px }
+  .reader{ width:100% }
+  .controls{ left:12px; right:12px; bottom:12px; overflow-x:auto }
+}
+
+/* ── background modes: independent from node palette ───────────────── */
+html[data-strata-bg="dark"]{--void:#000000;--deep:#000000;--panel:#000000;--rule:#333333;--rule-2:#555555;--text:#FFFFFF;--text-2:#FFFFFF;--text-3:#FFFFFF;--amber:#FFFFFF;--rose:#E2557B;--violet:#A98BE8;--green:#06D6A0;--ice:#4CC9F0;--teal:#06D6A0;--grey:#FFFFFF;--ledger-paper:#FFFFFF;--ledger-oxide:#FFFFFF;--ledger-slate:#FFFFFF;--ledger-marg:#FFFFFF;--ledger-rule:#333333;--agent-pastel:#CBBaf0}
+html[data-strata-bg="light"]{--void:#000000;--deep:#000000;--panel:#000000;--rule:#333333;--rule-2:#555555;--text:#FFFFFF;--text-2:#FFFFFF;--text-3:#FFFFFF;--amber:#FFFFFF;--rose:#C9365E;--violet:#6941C6;--green:#06D6A0;--ice:#4CC9F0;--teal:#06D6A0;--grey:#FFFFFF;--ledger-paper:#FFFFFF;--ledger-oxide:#FFFFFF;--ledger-slate:#FFFFFF;--ledger-marg:#FFFFFF;--ledger-rule:#333333;--agent-pastel:#E4E7EC}
+html[data-strata-bg="light"] .hud{background:rgba(0,0,0,.84)}
+/* Professional node-palette selector */
+.node-picker{
+  width:330px;
+  padding:14px 15px;
+  border-radius:10px;
+  background:rgba(0,0,0,.94);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 16px 48px rgba(0,0,0,.34);
+}
+.node-picker .np-title{
+  font:600 9px/1 var(--mono);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--text);
+  margin-bottom:11px;
+}
+.node-picker .np-section{
+  font:500 8px/1 var(--mono);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--text-3);
+  margin:12px 0 7px;
+}
+.node-picker .np-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.node-picker .np-bg{
+  grid-template-columns:1fr 1fr;
+}
+.node-picker button{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 9px;
+  border:1px solid var(--rule);
+  border-radius:5px;
+  color:var(--text-2);
+  background:rgba(255,255,255,.015);
+  font:400 10px/1 var(--mono);
+  text-align:left;
+  transition:border-color .16s,background .16s,color .16s,transform .16s;
+}
+.node-picker button:hover{
+  border-color:var(--rule-2);
+  background:rgba(255,255,255,.055);
+  color:var(--text);
+  transform:translateY(-1px);
+}
+.node-picker button.active{
+  border-color:var(--amber);
+  color:var(--text);
+  background:rgba(255,255,255,.075);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);
+}
+.node-picker .swatches{
+  display:flex;
+  gap:3px;
+  flex:none;
+}
+.node-picker .swatches i{
+  display:block;
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  box-shadow:0 0 6px currentColor;
+}
+.node-picker .bg-dot{
+  width:10px!important;
+  height:10px!important;
+  border-radius:2px!important;
+  border:1px solid var(--rule-2);
+  box-shadow:none!important;
+}
+html[data-strata-bg="light"] .node-picker{
+  background:rgba(0,0,0,.96);
+  box-shadow:0 16px 48px rgba(0,0,0,.16);
+}
+@media(max-width:700px){
+  .node-picker{right:10px;bottom:10px;width:285px}
+}
+
+/* ── FCT: back to the Executive view, open in tower, decide ───────────── */
+.xv-back{ display:inline-flex; align-items:center; height:34px; padding:0 12px; border:1px solid #555555; border-radius:3px;
+  background:#000000; color:#ffffff; font:500 10px/1 var(--mono); letter-spacing:.04em; text-decoration:none; white-space:nowrap }
+.xv-back:hover,.xv-back:focus{ border-color:#ffffff; outline:none }
+a.rd-open{ display:block; box-sizing:border-box; text-align:center; text-decoration:none; color:inherit }
+.rd-body a.xv-go{ margin-top:14px }
+.xv-refs{ margin-top:14px; display:grid; gap:8px }
+.xv-decide{ display:block; padding:10px 12px; border:1px solid var(--suggestion-accent,#A4231C); border-radius:3px;
+  color:var(--text); text-decoration:none; background:transparent; transition:background .15s }
+.xv-decide:hover,.xv-decide:focus{ background:rgba(164,35,28,.06); outline:none }
+.xv-d-top{ display:flex; align-items:center; gap:8px; font:500 10px/1.3 var(--mono); letter-spacing:.06em; color:var(--text-3) }
+.xv-d-top b{ padding:3px 7px; border-radius:2px; background:var(--suggestion-accent,#A4231C); color:#ffffff; font-weight:600; letter-spacing:.1em; text-transform:uppercase }
+.xv-d-t{ display:block; margin-top:6px; font:500 13px/1.4 var(--body); color:var(--text) }
+@media(max-width:700px){ .xv-back{ padding:0 9px } }
+</style>
+
+<style id="semantic-white-fixed">
+html,body{background:#000000!important;color:#FFFFFF!important}
+html[data-strata-bg="light"]{--void:#000000;--deep:#000000;--panel:#000000;--rule:#333333;--rule-2:#555555;--text:#FFFFFF;--text-2:#FFFFFF;--text-3:#FFFFFF;--amber:#FFFFFF;--rose:#ff3b30;--violet:#8b5cf6;--green:#06D6A0;--ice:#4CC9F0;--teal:#06D6A0;--grey:#FFFFFF;--ledger-paper:#FFFFFF;--ledger-oxide:#FFFFFF;--ledger-slate:#FFFFFF;--ledger-marg:#FFFFFF;--ledger-rule:#333333;--agent-pastel:#8b5cf6}
+html[data-strata-bg="light"] .hud,html[data-strata-bg="light"] .switch,html[data-strata-bg="light"] .reader,html[data-strata-bg="light"] .pal-box{background:#000000;color:#FFFFFF}
+html[data-strata-bg="light"] .switch a,html[data-strata-bg="light"] .hud p,html[data-strata-bg="light"] .counts,html[data-strata-bg="light"] .legend,html[data-strata-bg="light"] .ladder,html[data-strata-bg="light"] .controls,html[data-strata-bg="light"] .reader{color:#FFFFFF}
+</style>
+
+<style>
+/* Relationship labels: always white */
+.relation-label,
+.edge-label,
+.link-label,
+.rel-label {
+  color:#FFFFFF !important;
+  fill:#FFFFFF !important;
+}
+</style>
+
+<style>.switch{display:none !important;}</style>
+
+<style>
+/* Clean UI: layer counts are not displayed. */
+.layer-count, .layer-counts, .count-badge, .layer-meta .count,
+.layer-subtitle .count, .layer-kicker .count, .layer-header .count {
+  display:none !important;
+}
+</style>
+
+
+<style>
+/* Final clean UI */
+.hud.controls, .controls, .depth { display:none !important; }
+</style>
+
+<style>
+/* ── compact layer selector + centered page title ─────────────────────── */
+.layer-select-wrap{
+  position:fixed;
+  z-index:50;
+  top:18px;
+  left:20px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.layer-select-wrap label{
+  font:500 9px/1 var(--mono);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:#ffffff;
+}
+#layer-select{
+  appearance:auto;
+  min-width:205px;
+  height:34px;
+  padding:0 30px 0 11px;
+  border:1px solid #555555;
+  border-radius:3px;
+  background:#000000;
+  color:#ffffff;
+  font:500 10px/1 var(--mono);
+  letter-spacing:.04em;
+  cursor:pointer;
+  outline:none;
+}
+#layer-select:hover,
+#layer-select:focus{
+  border-color:#ffffff;
+}
+.page-title{
+  position:fixed;
+  z-index:50;
+  top:18px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#FFFFFF;
+  font:600 22px/1.2 Inter,Arial,sans-serif;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  pointer-events:none;
+  text-align:center;
+}
+.page-title .page-title-tree{
+  color:#4CC9F0;
+}
+.page-tagline{
+  display:block;
+  margin-top:6px;
+  color:#777777;
+  font:400 9px/1.2 var(--mono);
+  letter-spacing:.18em;
+}
+.page-title::after{
+  content:"";
+  display:block;
+  width:38px;
+  height:1px;
+  margin:9px auto 0;
+  background:rgba(76,201,240,.65);
+}
+@media(max-width:700px){
+  .layer-select-wrap{left:12px;top:12px}
+  #layer-select{min-width:175px}
+  .page-title{top:58px;font-size:22px}
+}
+</style>
+
+
+<style id="force-black-layer-dropdown">
+/* Force the layer selector and its label to white text on black background. */
+.layer-select-wrap label,
+.layer-select-wrap #layer-select,
+.layer-select-wrap #layer-select option {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+.layer-select-wrap #layer-select {
+  background: #000000 !important;
+  border: 1px solid #555555 !important;
+}
+.layer-select-wrap #layer-select option {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+}
+</style>
+
+<style id="ct-theme">
+/* Control Tower colour scheme — O-10 KPI tree re-theme.
+   Surface white #FFFFFF · ink #121A2B · notes #5B6576 · borders #DCE1E8.
+   Layers: KPI #24406E · Principle #5A3E9E · Entity #0B6B73 · Function #8A5300 · Root cause #A4231C */
+html,html[data-strata-bg],html[data-strata-bg="light"],html[data-strata-bg="dark"]{
+  --void:#FFFFFF !important; --deep:#FFFFFF !important; --panel:#FFFFFF !important;
+  --rule:#DCE1E8 !important; --rule-2:#DCE1E8 !important;
+  --text:#121A2B !important; --text-2:#121A2B !important; --text-3:#5B6576 !important;
+  --amber:#24406E !important; --rose:#A4231C !important; --violet:#5A3E9E !important;
+  --green:#0B6B73 !important; --ice:#24406E !important; --teal:#0B6B73 !important; --grey:#5B6576 !important;
+  --ledger-paper:#121A2B !important; --ledger-oxide:#121A2B !important; --ledger-slate:#121A2B !important;
+  --ledger-marg:#5B6576 !important; --ledger-rule:#DCE1E8 !important; --agent-pastel:#5A3E9E !important;
+}
+html,body{background:#FFFFFF !important;color:#121A2B !important}
+.hud,html[data-strata-bg="light"] .hud,html[data-strata-bg="light"] .reader,html[data-strata-bg="light"] .pal-box,
+html[data-strata-bg="light"] .switch{
+  background:#FFFFFF !important; color:#121A2B !important; border:1px solid #DCE1E8;
+  box-shadow:0 2px 10px rgba(18,26,43,.08);
+}
+.hud::before,.hud::after{ display:none }
+html[data-strata-bg="light"] .hud p,html[data-strata-bg="light"] .reader{ color:#121A2B !important }
+.reader{ background:#FFFFFF !important; border-left:1px solid #DCE1E8 }
+.rd-kind i{ box-shadow:none }
+.palette{ background:rgba(18,26,43,.35) }
+.pal-box{ background:#FFFFFF !important }
+.pres.on,.pres:hover,.lrow:hover,.link:hover{ background:rgba(36,64,110,.06) }
+.seg button[aria-pressed="true"],.switch a[aria-current="page"]{ background:rgba(36,64,110,.08) }
+.sheet-body a{ border-bottom-color:rgba(36,64,110,.35) }
+.relation-label,.edge-label,.link-label,.rel-label{ color:#121A2B !important; fill:#121A2B !important }
+.layer-select-wrap label,.layer-select-wrap #layer-select,.layer-select-wrap #layer-select option{
+  color:#121A2B !important; -webkit-text-fill-color:#121A2B !important }
+.layer-select-wrap #layer-select,.layer-select-wrap #layer-select option{ background:#FFFFFF !important }
+.layer-select-wrap #layer-select{ border:1px solid #DCE1E8 !important }
+#layer-select:hover,#layer-select:focus{ border-color:#24406E !important }
+.page-title{ color:#121A2B }
+.page-title .page-title-tree{ color:#24406E }
+.page-tagline{ color:#5B6576 }
+.page-title::after{ background:rgba(36,64,110,.6) }
+/* ── Where to start: root causes ranked by KPIs reached ─────────────── */
+.start{ position:fixed; z-index:19; top:98px; left:20px; right:20px; display:flex; align-items:flex-start; gap:12px }
+.start .sl{ flex:none; margin-top:9px; font:500 9px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; color:#5B6576 }
+.start .chips{ flex:1; min-width:0; display:flex; flex-wrap:wrap; gap:5px 6px }
+.chip{ flex:none; display:flex; align-items:center; gap:7px; height:26px; padding:0 10px;
+  background:#FFFFFF; border:1px solid #DCE1E8; border-radius:4px; cursor:pointer;
+  font:400 11.5px/1 var(--body); color:#121A2B; white-space:nowrap }
+.chip em{ font:400 10.5px/1 var(--body); font-style:normal; color:#5B6576 }
+.chip .cd{ width:8px; height:8px; border-radius:50%; background:var(--c); flex:none }
+.chip:hover,.chip:focus-visible,.chip.on{ border-color:#A4231C; background:rgba(164,35,28,.05); outline:none }
+.chip.on{ color:#A4231C }
+.chip.on em{ color:#A4231C }
+@media(max-width:759px){ .start{ display:none } }
+
+/* readout stays compact so it never reaches the strip below it */
+.readout .ml{ display:none }
+.readout{ padding:8px 14px 9px; top:8px }
+.readout .hint{ line-height:1.4 }
+.readout .rs{ line-height:1.3 }
+
+/* RCA paths in the side panel */
+.rd-path{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 4px; margin-top:8px; padding:9px 11px;
+  background:rgba(36,64,110,.04); border:1px solid #DCE1E8; border-radius:4px }
+.rd-path .arr{ color:#5B6576; font:400 12px/1 var(--body) }
+.rd-path .step{ display:inline-flex; align-items:center; gap:6px; padding:3px 4px; border-radius:3px;
+  font:400 13px/1.35 var(--body); color:#121A2B; text-align:left }
+.rd-path .step:hover{ background:rgba(36,64,110,.09) }
+.rd-path .step.me{ font-weight:700 }
+.rd-path .dot{ width:7px; height:7px; border-radius:50%; flex:none }
+.rd-sec > .ml + .rd-path{ margin-top:12px }
+.link .rel{ width:96px }
+/* ── KPI picker, beside the layer dropdown ──────────────────────────── */
+.kpi-menu{ position:relative; display:flex; align-items:center; gap:9px; margin-left:14px }
+.km-lab{ font:500 9px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; color:#121A2B }
+.km-btn{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:96px; height:34px; padding:0 11px;
+  background:#FFFFFF; border:1px solid #DCE1E8; border-radius:3px; cursor:pointer;
+  font:500 10px/1 var(--mono); letter-spacing:.04em; color:#121A2B }
+.km-btn:hover,.km-btn[aria-expanded="true"]{ border-color:#24406E }
+.km-car{ color:#5B6576; font-size:11px }
+.km-pop{ position:absolute; top:40px; left:0; width:270px; background:#FFFFFF; border:1px solid #DCE1E8; border-radius:4px;
+  box-shadow:0 8px 24px rgba(18,26,43,.14); z-index:60 }
+.km-pop[hidden]{ display:none }
+.km-head{ display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-bottom:1px solid #DCE1E8;
+  font:500 9px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:#5B6576 }
+.km-head button{ margin-left:10px; font:500 9px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:#24406E; cursor:pointer }
+.km-head button:hover{ text-decoration:underline }
+.km-list{ padding:4px 0; max-height:60vh; overflow-y:auto }
+.layer-select-wrap .km-row{ text-transform:none; letter-spacing:0; font:400 13px/1.3 var(--body) !important; color:#121A2B !important; -webkit-text-fill-color:#121A2B }
+.km-row{ display:flex; align-items:center; gap:9px; padding:7px 12px; cursor:pointer; font:400 13px/1.3 var(--body); color:#121A2B }
+.km-row:hover{ background:rgba(36,64,110,.06) }
+.km-row input{ accent-color:#24406E; margin:0; width:14px; height:14px }
+.km-row i{ width:8px; height:8px; border-radius:50%; flex:none }
+@media(max-width:1100px){ .km-lab{ display:none } }
+@media(max-width:700px){ .kpi-menu{ margin-left:8px } }
+</style>
+</head>
+<body class="fixed-graph">
+
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="layer-select-wrap">
+  <a class="xv-back" href="desk.html">&larr; Executive view</a>
+  <label for="layer-select">LAYER</label>
+  <select id="layer-select" aria-label="Select layer">
+    <option value="all">All layers</option>
+    <option value="1">1 · Tower</option>
+    <option value="2">2 · Segment</option>
+    <option value="3">3 · KPI</option>
+    <option value="4">4 · Process stage</option>
+    <option value="5">5 · Root cause</option>
+  </select>
+  <div class="kpi-menu" id="kpi-menu">
+    <label class="km-lab">Towers</label>
+    <button type="button" class="km-btn" aria-haspopup="true" aria-expanded="false" aria-label="Choose towers to show">
+      <span class="km-n">2 / 4</span><span class="km-car">▾</span>
+    </button>
+    <div class="km-pop" hidden>
+      <div class="km-head"><span>Show paths for</span>
+        <span><button type="button" data-act="all">All</button><button type="button" data-act="none">None</button></span></div>
+      <div class="km-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page-title"><span class="page-title-kpi">KPI</span> <span class="page-title-tree">TREE</span><span class="page-tagline">TRACE · DIAGNOSE · DECIDE</span></div>
+
+<div class="start" id="start" aria-label="Where to start">
+  <span class="sl">Where to start</span>
+  <div class="chips"></div>
+</div>
+
+<aside class="hud readout">
+  <span class="ml">Readout</span>
+  <div id="ro-body"></div>
+</aside>
+
+
+
+<section class="reader" id="reader" aria-label="Detail">
+  <button class="rd-close" id="rd-close">Close ESC</button>
+  <div class="rd-head" id="rd-head"></div>
+  <div class="rd-body" id="rd-body"></div>
+</section>
+
+<div class="palette" id="palette" hidden>
+  <div class="pal-box" role="dialog" aria-modal="true" aria-label="Find in the estate">
+    <input id="pq" type="search" placeholder="Find anything — a tower, KSM-17, overdue receivables, a root cause…" autocomplete="off">
+    <div id="presults"></div>
+    <div class="pal-foot">↑↓ move · ↵ open · esc close</div>
+  </div>
+</div>
+
+<script>window.SHEETS_HTML={};</script>
+<script>/* ══ FCT KPI TREE: tower → segment → KPI → process stage → root cause → decision ══
+   Every figure is the tower model's own value at the Sep-26 close snapshot (05-Oct-2026 09:10, before any decision is taken):
+   p2p-model, o2c-model, sc-model and r2r-model with default filters. Segments are the towers' own segmentations
+   (vendor risk category, customer segment, material ABC × XYZ class, entity segment). Stages are each tower's process chain,
+   and each link to a stage follows the tower's issue-code → stage map. Root causes come from the exception register and the
+   RCA register (data/exceptions.js, data/rca.js, data/sc/anomalies.js); decisions are the exceptions the executive decides on.
+   All data is illustrative, as on every FCT screen.
+─────────────────────────────────────────────────────────────────────────── */
+(function(){
+var C={kpi:window.__THEME.kpi,principle:window.__THEME.principle,entity:window.__THEME.entity,fn:window.__THEME.fn,cause:window.__THEME.cause};
+function T(id,n,label,color,edit,rule,gloss){var typeColor={1:window.__THEME.principle,2:window.__THEME.entity,3:window.__THEME.fn,4:window.__THEME.cause}[n]||color; return {id:id,n:n,label:label,color:color,pastel:typeColor,edit:edit,rule:rule,gloss:gloss};}
+var R='../../screens/';
+window.GRAPH={
+ types:{
+  kpi:{label:'Tower',color:C.kpi,pastel:window.__THEME.pastel.kpi},
+  principle:{label:'Segment',color:C.principle,pastel:window.__THEME.pastel.principle},
+  entity:{label:'KPI',color:C.entity,pastel:window.__THEME.pastel.entity},
+  fn:{label:'Process stage',color:C.fn,pastel:window.__THEME.pastel.fn},
+  cause:{label:'Root cause',color:C.cause,pastel:window.__THEME.pastel.cause}
+ },
+ tiers:[
+  T('t1',1,'Tower',C.kpi,'Where we look','The process tower and its health score.','Four process towers. Health is each tower’s weighted score out of 100 for Sep-26 (Healthy 75+, Watch 55–74, At risk under 55).'),
+  T('t2',2,'Segment',C.principle,'Who it concerns','The slice of vendors, customers, materials or entities affected.','Each tower’s own segmentation: vendor risk category (P2P), customer segment (O2C), material ABC × XYZ class (SC) and entity segment (R2R).'),
+  T('t3',3,'KPI',C.entity,'What is off target','The measure the segment moves.','Scorecard KPIs at the Sep-26 close, before any decision is taken. Each opens on its tower scorecard.'),
+  T('t4',4,'Process stage',C.fn,'Where it breaks','The step of the process chain that fails.','The stage of the tower’s process chain where the issue is recorded, from the tower’s issue-code map.'),
+  T('t5',5,'Root cause',C.cause,'Why it happens','What to fix, and the decision that fixes it.','Solid: the cause is evidenced in the RCA register. Dashed ring: inferred from the exception evidence; the owner confirms it when deciding.')
+ ],
+ tier:{},
+ /* id, label, type, ring, clock, state, sheet, sub, summary, link */
+ nodes:[
+  ['t_p2p','Procure to pay','kpi',0,0,'in','P2P','Health 65 · Watch','P2P Health Score 65 / 100 for Sep-26 (Watch, 5 points down on Aug). Spend ₹551 Cr, overdue payables ₹54.0 Cr, potential exposure ₹9.19 Cr across 148 active vendors.',R+'p2p/desk.html#sheet'],
+  ['t_o2c','Order to cash','kpi',0,1,'in','O2C','Health 56 · Watch','O2C Health Score 56 / 100 for Sep-26 (Watch). Billed revenue ₹1,081 Cr, open receivables ₹1,538 Cr of which ₹435 Cr overdue, collections exposure ₹36.9 Cr across 56 active customers.',R+'o2c/desk.html#sheet'],
+  ['t_sc','Supply chain','kpi',0,2,'in','SC','Health 56 · Watch','SC Health Score 56 / 100 for Sep-26 (Watch). Inventory ₹642.0 Cr, excess above policy ₹38.5 Cr, receipts not booked ₹19.0 Cr, material exposure ₹85.79 Cr.',R+'sc/desk.html#sheet'],
+  ['t_r2r','Record to report','kpi',0,3,'in','R2R','Health 63 · Watch','R2R Close Health Score 63 / 100 for the Sep-26 close, in flight at WD+2. Close progress 59.5%, journals pending ₹9.33 Cr, unreconciled differences ₹9.09 Cr, potential adjustments ₹30.44 Cr.',R+'r2r/desk.html#sheet'],
+
+  ['g_p_crit','Critical-risk vendors','principle',0,0,'in','','2 vendors','P2P vendor risk category Critical: 2 of 148 active vendors, including Kaveri Intermediates (risk score 88, sole source of KSM-17, insolvency petition filed 28-Sep).',R+'p2p/vendors.html'],
+  ['g_p_high','High-risk vendors','principle',0,1,'in','','8 vendors','P2P vendor risk category High: 8 vendors, including Sterling Gases (risk score 66), the sole nitrogen supplier to IN-02.',R+'p2p/vendors.html'],
+  ['g_p_med','Medium-risk vendors','principle',0,2,'in','','49 vendors','P2P vendor risk category Medium: 49 vendors. Apex Chem Intermediates is approved as Medium but the model now scores it Critical (88) because of an unverified bank-detail change, so a re-review is proposed.',R+'p2p/vendors.html'],
+  ['g_p_low','Low-risk vendors','principle',0,3,'in','','89 vendors','P2P vendor risk category Low: 89 vendors, including Shree Packaging Industries (V-100482), which also exists as a second vendor code, V-207115.',R+'p2p/vendors.html'],
+  ['g_o_str','Strategic customers','principle',0,4,'in','','8 customers','O2C customer segment Strategic: 8 active customers, including Meridian Health Systems (IN-03, 60-day terms).',R+'o2c/customers.html'],
+  ['g_o_dst','Distributors','principle',0,5,'in','','12 customers','O2C customer segment Distributor: 12 active customers, including Medilink Distributors and Corvia Healthcare (both IN-02).',R+'o2c/customers.html'],
+  ['g_o_exp','Export customers','principle',0,6,'in','','8 customers','O2C customer segment Export: 8 active customers, including Helvetia Pharma Distribution AG (EU-01).',R+'o2c/customers.html'],
+  ['g_o_key','Key accounts','principle',0,7,'in','','10 customers','O2C customer segment Key account: 10 active customers, including NutriBlend Foods (IN-04, 30-day terms).',R+'o2c/customers.html'],
+  ['g_o_trn','Transactional customers','principle',0,8,'in','','18 customers','O2C customer segment Transactional: 18 active customers, including Zenith Life Care (C-40118, IN-03).',R+'o2c/customers.html'],
+  ['g_s_ay','A·Y: high value, variable demand','principle',0,9,'in','','18 material-plants','SC class A (top 80% of stock value) with variable consumption (CoV 0.25–0.5): 18 material-plants, including KSM-17 at IN-02 Plant A.',R+'sc/materials.html'],
+  ['g_s_ax','A·X: high value, steady demand','principle',0,10,'in','','23 material-plants','SC class A with steady consumption (CoV under 0.25): 23 material-plants, including KSM-04 and solvents at IN-02 Plant A and API Line 2 output.',R+'sc/materials.html'],
+  ['g_s_az','A·Z: high value, erratic demand','principle',0,11,'in','','11 material-plants','SC class A with erratic consumption (CoV 0.5 and above): 11 material-plants, including US generics finished goods at US-01.',R+'sc/materials.html'],
+  ['g_s_by','B·Y: medium value, variable demand','principle',0,12,'in','','10 material-plants','SC class B (next 15% of stock value) with variable consumption: 10 material-plants, including the Pd/C catalyst at IN-05.',R+'sc/materials.html'],
+  ['g_r_mfg','Manufacturing entities','principle',0,13,'in','','5 entities','R2R entity segment Manufacturing: IN-02, IN-03, IN-04, IN-05 and IN-06. Plants with inventory, costing and heavy sub-ledgers.',R+'r2r/entities.html'],
+  ['g_r_svc','Services and trading entities','principle',0,14,'in','','3 entities','R2R entity segment Services and trading: IN-01 (HQ), IN-07 (contract research) and IN-08 (distribution).',R+'r2r/entities.html'],
+  ['g_r_ovs','Overseas sales entities','principle',0,15,'in','','2 entities','R2R entity segment Overseas sales: US-01 and EU-01, foreign-currency sales subsidiaries.',R+'r2r/entities.html'],
+
+  ['k_p_exp','Potential exposure','entity',0,0,'in','P2P','₹9.19 Cr','P2P Potential Exposure: sum of estimates for open or under-investigation cases with a financial method, at the snapshot. Disputed and confirmed loss are reported beside it, never added.',R+'p2p/desk.html#kpi=exposure'],
+  ['k_p_otp','On-time payment','entity',0,1,'in','P2P','87.0%','P2P On-Time Payment Rate, Sep-26: invoices paid on or before the due date ÷ invoices paid. Unpaid overdue items are reported separately.',R+'p2p/desk.html#kpi=otp'],
+  ['k_p_mdq','Vendor master-data quality','entity',0,2,'in','P2P','93.0%','P2P vendor master-data quality: checks passed ÷ (active vendors × 6 checks). Duplicate vendor records fail this check.',R+'p2p/desk.html#kpi=mdq'],
+  ['k_o_exp','Collections exposure','entity',0,3,'in','O2C','₹36.91 Cr','O2C Collections Exposure: sum of estimates for open or under-investigation financial cases at the snapshot. Control cases show value affected beside it, never added.',R+'o2c/desk.html#kpi=exposure'],
+  ['k_o_ovd','Overdue receivables','entity',0,4,'in','O2C','₹435.0 Cr','O2C Overdue Receivables at the snapshot: 1–30 days ₹238 Cr, 31–60 ₹96 Cr, 61–90 ₹54.2 Cr, over 90 ₹46.8 Cr, out of ₹1,538 Cr open.',R+'o2c/desk.html#kpi=overdue'],
+  ['k_o_ptp','Payment commitments met','entity',0,5,'in','O2C','70.8%','O2C Payment Commitments Met, Sep-26: dated promises falling due in the period that were honoured ÷ promises due. Target 85%.',R+'o2c/desk.html#kpi=ptp'],
+  ['k_o_crd','Credit decisions within policy','entity',0,6,'in','O2C','86.4%','O2C Credit Decisions Within Policy, Sep-26: credit decisions inside the approved policy (limit, terms, security) ÷ limit changes, new accounts and order releases decided in the period. Target 98%.',R+'o2c/desk.html#kpi=credit'],
+  ['k_o_mdq','Customer master-data accuracy','entity',0,7,'in','O2C','93.8%','O2C Customer Master Data Accuracy: checks passed ÷ (active customers × 6 checks). Target 99%. A duplicate customer record fails this check.',R+'o2c/desk.html#kpi=mdq'],
+  ['k_s_rnb','Receipts not booked','entity',0,8,'in','SC','₹19.0 Cr','SC Receipts Not Booked at the 30-Sep book date: 19 shipments in transit with title passed (₹12.6 Cr) plus 142 gate receipts without a goods receipt (₹6.4 Cr). Four DAP/DDP shipments (₹2.1 Cr) are excluded.',R+'sc/desk.html#kpi=rnb'],
+  ['k_s_rcpt','Receipt timeliness','entity',0,9,'in','SC','71.0%','SC Receipt Timeliness, Sep-26: deliveries with a goods receipt posted within 48 hours of gate entry ÷ all gate deliveries, including those still without a goods receipt.',R+'sc/desk.html#kpi=rcpt'],
+  ['k_s_otif','Supplier OTIF','entity',0,10,'in','SC','87.7%','SC Supplier OTIF, Sep-26: PO lines delivered on the confirmed date and in full ÷ PO lines due in the period.',R+'sc/desk.html#kpi=otif'],
+  ['k_s_mexp','Material exposure','entity',0,11,'in','SC','₹85.79 Cr','SC Material Exposure: sum of estimates for open financial cases at 09:10. Contingent parts (revenue at risk, slow-moving on watch, input credit at risk) are reported beside it.',R+'sc/desk.html#kpi=exposure'],
+  ['k_s_fc','Forecast accuracy','entity',0,12,'in','SC','79.1%','SC Forecast Accuracy, Sep-26: 1 − WMAPE; bias +9.6% is shown beside it.',R+'sc/desk.html#kpi=fcAcc'],
+  ['k_s_exc','Excess stock','entity',0,13,'in','SC','₹38.5 Cr','SC Excess Stock above policy maximum: IN-02 Plant A ₹21.2 Cr (including a ₹12.0 Cr approved strategic buy), IN-03 ₹9.8 Cr, other sites ₹7.5 Cr.',R+'sc/desk.html#kpi=excess'],
+  ['k_s_ira','Inventory record accuracy','entity',0,14,'in','SC','97.2%','SC Inventory Record Accuracy: cycle counts where book and physical quantity differ by 0.5% or less ÷ counts completed in the period.',R+'sc/desk.html#kpi=ira'],
+  ['k_r_prog','Close progress','entity',0,15,'in','R2R','59.5%','R2R Close Progress at the snapshot (Sep close, WD+2): Sep close tasks done ÷ Sep close tasks.',R+'r2r/desk.html#kpi=progress'],
+  ['k_r_jnl','Journals first time right','entity',0,16,'in','R2R','96.2%','R2R Journal Entry & Accruals KPI: posted manual and AI-drafted journals with no flag ÷ all of them. Flags include no support, approved after posting, same preparer and approver, anomaly score 0.75+, corrected later, posted into a closed period.',R+'r2r/desk.html#kpi=jnl'],
+  ['k_r_adj','Potential adjustments','entity',0,17,'in','R2R','₹30.44 Cr','R2R Potential Adjustments: sum of estimates of financial cases still potential. Proposed, booked and closed are reported separately.',R+'r2r/desk.html#kpi=adj'],
+  ['k_r_ic','Intercompany match rate','entity',0,18,'in','R2R','92.8%','R2R Account Reconciliation KPI: intercompany items agreed (or agreed within FX rounding) ÷ intercompany items.',R+'r2r/desk.html#kpi=ic'],
+  ['k_r_unrec','Unreconciled differences','entity',0,19,'in','R2R','₹9.09 Cr','R2R Unreconciled Differences: sum of absolute differences on Sep reconciliations that are not certified.',R+'r2r/desk.html#kpi=unrec'],
+  ['k_r_var','Variance commentary signed','entity',0,20,'in','R2R','61.8%','R2R Management Reporting KPI: material budget variances with commentary signed by WD+2 ÷ material variances (21 of 34).',R+'r2r/desk.html#kpi=var'],
+
+  ['s_p_inv','Invoices · P2P','fn',0,0,'in','P2P','Process stage','P2P process chain, Invoices: does each invoice match its PO and goods receipt, is it booked only once, and is it approved within 3 days?',R+'p2p/process.html'],
+  ['s_p_pay','Payment · P2P','fn',0,1,'in','P2P','Process stage','P2P process chain, Payment: is the right vendor paid the right amount, on the due date? Includes bank-detail changes and advances.',R+'p2p/process.html'],
+  ['s_o_crd','Credit check · O2C','fn',0,2,'in','O2C','Process stage','O2C process chain, Credit check: is the customer within limit and terms before we ship? Includes exposure above limit and duplicate customer records.',R+'o2c/process.html'],
+  ['s_o_inv','Invoice · O2C','fn',0,3,'in','O2C','Process stage','O2C process chain, Invoice: is the invoice raised when control passed, at the contract price?',R+'o2c/process.html'],
+  ['s_o_col','Collection · O2C','fn',0,4,'in','O2C','Process stage','O2C process chain, Collection: are overdue balances chased in the right sequence? Includes disputed invoices and broken promises to pay.',R+'o2c/process.html'],
+  ['s_o_csh','Cash application · O2C','fn',0,5,'in','O2C','Process stage','O2C process chain, Cash application: is each receipt matched to the correct open invoice, once? Includes short payments and deductions.',R+'o2c/process.html'],
+  ['s_s_fct','Forecast · SC','fn',0,6,'in','SC','Process stage','SC process chain, Forecast: is demand forecast accurately, and is the plan updated when demand moves away from it?',R+'sc/process.html'],
+  ['s_s_pln','Plan · SC','fn',0,7,'in','SC','Process stage','SC process chain, Plan: is stock kept within policy levels, with ageing and expiry under control?',R+'sc/process.html'],
+  ['s_s_prc','Procure · SC','fn',0,8,'in','SC','Process stage','SC process chain, Procure: do suppliers deliver on time, in full and at the contract price?',R+'sc/process.html'],
+  ['s_s_rcv','Receive · SC','fn',0,9,'in','SC','Process stage','SC process chain, Receive: is every delivery we own recorded in inventory within 48 hours?',R+'sc/process.html'],
+  ['s_s_prd','Produce · SC','fn',0,10,'in','SC','Process stage','SC process chain, Produce: are production yields, costs and stock counts correct?',R+'sc/process.html'],
+  ['s_s_shp','Ship · SC','fn',0,11,'in','SC','Process stage','SC process chain, Ship: is stock removed in the right period and valued no higher than its selling price?',R+'sc/process.html'],
+  ['s_r_sub','Sub-ledger close · R2R','fn',0,12,'in','R2R','Process stage','R2R close chain, Sub-ledger Close: are AP, AR, inventory and fixed-asset sub-ledgers complete and locked on time?',R+'r2r/process.html'],
+  ['s_r_jnl','Journals & accruals · R2R','fn',0,13,'in','R2R','Process stage','R2R close chain, Journal Entry & Accruals: are journals supported, approved before posting and free of anomalies?',R+'r2r/process.html'],
+  ['s_r_rec','Reconciliation · R2R','fn',0,14,'in','R2R','Process stage','R2R close chain, Account Reconciliation: does every balance agree to its support, with differences explained? Includes intercompany items not agreed.',R+'r2r/process.html'],
+  ['s_r_cls','Consolidation · R2R','fn',0,15,'in','R2R','Process stage','R2R close chain, Intercompany & Consolidation: are periods locked, intercompany agreed and every account mapped to the group chart?',R+'r2r/process.html'],
+  ['s_r_rpt','Management reporting · R2R','fn',0,16,'in','R2R','Process stage','R2R close chain, Management Reporting: are big budget variances explained, and does the pack tie to the trial balance?',R+'r2r/process.html'],
+
+  ['c_sole','KSM-17 has a single qualified source','cause',0,0,'in','','₹26.1 Cr exposure','Kaveri Intermediates is the only qualified supplier of KSM-17 and faces an insolvency petition filed on 28-Sep; its rating fell to BB- and its delivery rate from 94% to 71%. Exposure ₹26.1 Cr: ₹2.4 Cr unsecured advance, ₹9.6 Cr open orders and ₹14.1 Cr of revenue that depends on KSM-17, with 25 days of cover.',''],
+  ['c_bank','Bank change can reach approval before call-back','cause',0,1,'in','','₹1.12 Cr at risk','The master-data workflow lets a bank change requested by e-mail reach approval before the call-back is logged, and does not block the payment run on an unverified change. Apex Chem’s change to a Dubai account is due to be paid ₹1.12 Cr in PR-20261006.',''],
+  ['c_deleg','Sole level-3 approver on leave, no delegate','cause',0,2,'in','','₹2.14 Cr due 08-Oct','The IN-02 plant head, the only level-3 approver, has been on leave since 29-Sep with no delegate set. Sterling Gases’ invoice was three-way matched on 29-Sep and has waited 6 days; the supplier has threatened to pause nitrogen, which would stop two API reactor lines.',''],
+  ['c_dupv','Vendor created without PAN / GSTIN duplicate check','cause',0,3,'in','','₹48.6 L duplicate','Vendor code V-207115 was created on 11-Sep without a PAN / GSTIN duplicate check, so Shree Packaging exists twice and its invoices match independently (RC-02).',''],
+  ['c_oprice','Renewed customer contract prices not in price master','cause',0,4,'in','','₹5.2 Cr held','Three customer contracts renewed in July were not updated in the price master (RC-04). Meridian is withholding ₹1.12 Cr on 9 invoices that do not match the renewal, holding ₹3.1 Cr overdue with them; pricing explains 40% (₹2.08 Cr) of ₹5.2 Cr open deductions.',''],
+  ['c_ptp','Dated promise to pay broken a second time','cause',0,5,'ctx','','₹3.3 Cr unpaid','Corvia promised on 18-Sep to pay ₹3.3 Cr by 30-Sep. No receipt has arrived and no unapplied receipt matches; this is the second missed promise this year. The customer’s reason is not yet known.',''],
+  ['c_headroom','Q3 orders exceed credit headroom','cause',0,6,'ctx','','+₹6.0 Cr requested','Medilink wants to place ₹7.4 Cr of Q3 orders against ₹11.4 Cr exposure on a ₹12 Cr limit, with ₹1.8 Cr overdue and a bureau score down from 74 to 66. The requested ₹18 Cr is above the 125% policy cap.',''],
+  ['c_overlim','Orders continue while an invoice is overdue','cause',0,7,'ctx','','₹35 L over limit','Helvetia’s exposure is ₹2.35 Cr against a ₹2.00 Cr limit while an invoice is overdue. The order hold that should apply at the limit has not stopped new orders.',''],
+  ['c_deduct','Shortage deduction raised against a signed POD','cause',0,8,'in','','₹46 L short-paid','NutriBlend deducted ₹0.46 Cr for 120 of 1,400 cartons. The signed proof of delivery shows 1,400 cartons with the seal intact, and the weighbridge record matches.',''],
+  ['c_dupc','Onboarding request duplicates an existing customer','cause',0,9,'in','','92% match','The request shares PAN, registered address and contact with C-40118 Zenith Life Care (₹0.62 Cr outstanding, ₹1 Cr limit). A second account would double the credit available.',''],
+  ['c_git','Imports booked on arrival, not when title passes','cause',0,10,'in','','₹12.6 Cr unbooked','Goods are recorded only when they arrive, so ₹12.6 Cr of imports that became ours when loaded (FOB, CFR or CIF) on or before 30-Sep are not in the books. Inventory and payables are both understated; profit is unaffected.',''],
+  ['c_gr','Goods receipts not posted within 48 hours (RC-01)','cause',0,11,'in','','₹6.4 Cr at the gate','142 deliveries reached the gate by 30-Sep without a goods receipt at IN-02 Plant A, IN-05 and IN-04; the IN-02 gate system has been degraded since 01-Oct. In P2P the same cause blocks ₹18.6 Cr of the ₹32.0 Cr blocked invoices.',''],
+  ['c_rebase','US generics forecast not re-baselined since June','cause',0,12,'in','','bias +43%','Two competitors launched in August and US generics demand fell, but the forecast still assumes pre-August volumes (bias +43%, accuracy 57%). US-01 holds about ₹6.2 Cr above demand and 96 days of cover against a 60-day maximum; much of the excess stock follows from it.',''],
+  ['c_reorder','Reorder parameters unchanged since FY25','cause',0,13,'in','','164 SKUs','Reorder parameters for 164 SKUs have not been reset since FY25, so replenishment continues above the policy maximum. 37 open POs worth ₹14.6 Cr can still be cancelled or deferred.',''],
+  ['c_nrv','Selling prices fell below cost after competitor entry','cause',0,14,'in','','₹3.40 Cr write-down','Net selling prices for 14 finished-goods SKUs fell 22% after two competitors launched in August. Stock costing ₹13.8 Cr can realise only ₹10.4 Cr, so Ind AS 2 requires a ₹3.40 Cr write-down (US-01 ₹2.6 Cr, IN-03 ₹0.8 Cr).',''],
+  ['c_sprice','Renewed supplier contract prices not loaded','cause',0,15,'in','','₹7.0 Cr blocked','Five supplier contracts renewed in July–August were never loaded at their new prices, so ₹3.9 Cr of correct invoices are blocked; three suppliers also billed ₹2.3 Cr above contract, and ₹0.8 Cr is FX and tolerance.',''],
+  ['c_yield','Abnormal yield loss left in closing stock','cause',0,16,'in','','₹2.10 Cr','API Line 2 yield was 82% against an 88% standard after contamination in reactor R-3. ₹2.1 Cr of abnormal loss was allocated to closing stock instead of being expensed (Ind AS 2.16).',''],
+  ['c_custody','One storekeeper holds, counts and scraps stock','cause',0,17,'in','','₹1.86 Cr short','Storekeeper stk.in05.07 both holds the stock and counts it (F-2026-044), and can post scrap without a QA rejection note, so a shortage can be hidden as scrap. The IN-05 count is 3.1% short against 0.5% tolerance; palladium catalyst is 14% short.',''],
+  ['c_pdc','Pd/C catalyst has no second qualified source','cause',0,18,'in','','₹2.2 Cr exposed','Polychem, the only qualified supplier of the Pd/C catalyst, delivered on time and in full only 76% of the time; two late deliveries delayed three IN-05 batches in September.',''],
+  ['c_backup','Close tasks have no named backup owner','cause',0,19,'in','','+2 close days','IN-07 is forecast to close at WD+6, two days late. The intercompany reconciliation owner is on leave (46% of the delay), 14 accruals worth ₹2.71 Cr are unreviewed (33%) and the PMO timesheet feed is down (21%). Owner absence caused 3 of the last 6 close slips.',''],
+  ['c_revjnl','Revenue journals need no support or independent approver','cause',0,20,'in','','₹2.40 Cr journal','Manual journals to revenue need no attachment, any GL approver at IN-05 can approve them, and the period lock allows postings until 23:59. A ₹2.40 Cr journal was posted at 23:48 on 30-Sep and approved four minutes later.',''],
+  ['c_reverse','Accrual reversal flag is set by hand','cause',0,21,'in','','₹86 L counted twice','IN-03’s August contract-labour accrual was posted without the auto-reverse flag, and the September invoice was booked too. Nothing checks open accruals against the invoices that follow.',''],
+  ['c_superuser','Shared superuser keeps period-override rights','cause',0,22,'in','','₹42 L into August','fin_admin keeps the right to override the period lock; it was released on 01-Oct under emergency access EAR-0412, approved by IT without finance sign-off, and used to post ₹0.42 Cr of freight into August after August was reported.',''],
+  ['c_iccut','Intercompany confirmations start after period end','cause',0,23,'in','','₹3.10 Cr break','Confirmations start on WD+1, after the books close, so goods in transit (₹2.60 Cr, invoiced 29-Sep, received 03-Oct) are found too late; US-01 also translated the payable at the average rate instead of the closing rate (₹0.50 Cr).',''],
+  ['c_air','Air freight above budgeted mix needs no approval','cause',0,24,'ctx','','+₹14.2 Cr freight','IN-02 freight outward is ₹14.2 Cr (18%) over budget: air share rose from 9% to 22% (₹10.1 Cr) and rates rose 6% (₹4.7 Cr). The business reason for the shift to air is not recorded; Supply chain must confirm it before the commentary is signed.','']
+ ],
+ edges:[]
+};
+var G=window.GRAPH;
+G.nodes.forEach(function(n){ G.tier[n[0]]={kpi:1,principle:2,entity:3,fn:4,cause:5}[n[2]]; });
+/* Each chain is one path: tower > segment > KPI > process stage > root cause */
+G.paths=[
+ ['t_p2p','g_p_crit','k_p_exp','s_p_pay','c_sole'],
+ ['t_p2p','g_p_med','k_p_exp','s_p_pay','c_bank'],
+ ['t_p2p','g_p_high','k_p_otp','s_p_inv','c_deleg'],
+ ['t_p2p','g_p_low','k_p_exp','s_p_inv','c_dupv'],
+ ['t_p2p','g_p_low','k_p_mdq','s_p_inv','c_dupv'],
+ ['t_o2c','g_o_str','k_o_exp','s_o_inv','c_oprice'],
+ ['t_o2c','g_o_str','k_o_ovd','s_o_col','c_oprice'],
+ ['t_o2c','g_o_dst','k_o_ptp','s_o_col','c_ptp'],
+ ['t_o2c','g_o_dst','k_o_crd','s_o_crd','c_headroom'],
+ ['t_o2c','g_o_exp','k_o_crd','s_o_crd','c_overlim'],
+ ['t_o2c','g_o_key','k_o_exp','s_o_csh','c_deduct'],
+ ['t_o2c','g_o_trn','k_o_mdq','s_o_crd','c_dupc'],
+ ['t_sc','g_s_ay','k_s_rnb','s_s_rcv','c_git'],
+ ['t_sc','g_s_ay','k_s_rnb','s_s_rcv','c_gr'],
+ ['t_sc','g_s_ay','k_s_rcpt','s_s_rcv','c_gr'],
+ ['t_sc','g_s_ay','k_s_otif','s_s_prc','c_sole'],
+ ['t_sc','g_s_ay','k_s_mexp','s_s_prc','c_sole'],
+ ['t_sc','g_s_az','k_s_fc','s_s_fct','c_rebase'],
+ ['t_sc','g_s_az','k_s_exc','s_s_pln','c_rebase'],
+ ['t_sc','g_s_ax','k_s_exc','s_s_pln','c_reorder'],
+ ['t_sc','g_s_az','k_s_mexp','s_s_shp','c_nrv'],
+ ['t_sc','g_s_ax','k_s_mexp','s_s_prc','c_sprice'],
+ ['t_sc','g_s_ax','k_s_mexp','s_s_prd','c_yield'],
+ ['t_sc','g_s_by','k_s_ira','s_s_prd','c_custody'],
+ ['t_sc','g_s_by','k_s_otif','s_s_prc','c_pdc'],
+ ['t_r2r','g_r_svc','k_r_prog','s_r_sub','c_backup'],
+ ['t_r2r','g_r_mfg','k_r_jnl','s_r_jnl','c_revjnl'],
+ ['t_r2r','g_r_mfg','k_r_adj','s_r_jnl','c_revjnl'],
+ ['t_r2r','g_r_mfg','k_r_jnl','s_r_jnl','c_reverse'],
+ ['t_r2r','g_r_svc','k_r_jnl','s_r_cls','c_superuser'],
+ ['t_r2r','g_r_ovs','k_r_ic','s_r_rec','c_iccut'],
+ ['t_r2r','g_r_ovs','k_r_unrec','s_r_rec','c_iccut'],
+ ['t_r2r','g_r_mfg','k_r_var','s_r_rpt','c_air']
+];
+var REL=['segments','moves','breaks at','caused by'],seen={};
+G.paths.forEach(function(p){for(var i=0;i<4;i++){var k=p[i]+'>'+p[i+1];if(!seen[k]){seen[k]=1;G.edges.push([p[i],p[i+1],REL[i]]);}}});
+
+/* the decision behind each root cause: the exceptions the executive decides on, with their recommended action */
+G.decisions={
+ c_sole:{ title:'Protect KSM-17 supply and provide against the Kaveri advance',
+  summary:'Kaveri is the only qualified source of KSM-17 and has an insolvency petition against it. Exposure is ₹26.1 Cr; the alternate supplier, Tapi Chemicals, needs 6 weeks to validate.',
+  actions:['Provide ₹1.20 Cr against the ₹2.4 Cr unsecured advance (ADV-0818).','Move Kaveri to cash on delivery and build a KSM-17 buffer from current cover of 25 days.','Fast-track qualification of Tapi Chemicals as a second source; brief the CFO.'],
+  check:'Track KSM-17 days of cover against the 45-day policy and the Tapi validation milestone each week.',
+  refs:[['SC-SUP-02','Sole-source KSM supplier: insolvency petition filed','₹26.1 Cr','high']] },
+ c_bank:{ title:'Hold the payment and reject the bank change pending a call-back',
+  summary:'All five high-risk indicators are present (risk 91 against a threshold of 60) and the payment is irreversible once released.',
+  actions:['Hold ₹1.12 Cr for Apex Chem from payment run PR-20261006.','Reject the change pending a call-back to the number on the vendor master.','Block the payment run on any unverified bank change; notify Compliance of a probable impersonation attempt.'],
+  check:'Confirm the call-back is logged before any bank-detail change is approved, and that the run excludes unverified changes.',
+  refs:[['PTP-BNK-05','Vendor bank-detail change before payment run','₹1.12 Cr','critical']] },
+ c_deleg:{ title:'Approve through a delegate and pay in Tuesday’s run',
+  summary:'The invoice is matched; only the level-3 approval is missing. Late payment risks a nitrogen pause on two API reactor lines and 1.5% a month in late charges.',
+  actions:['Route the approval to the Operations head (L3 authority) under DoA clause 4.2.','Include the ₹2.14 Cr invoice in Tuesday’s payment run.','Require a standing delegate for any approver on leave for more than 3 days.'],
+  check:'Confirm payment by the 08-Oct due date and that every L3 approver has a named delegate.',
+  refs:[['PTP-LPR-09','Critical vendor payment likely to miss due date','₹2.14 Cr','high']] },
+ c_dupv:{ title:'Block the duplicate invoice and merge the vendor records',
+  summary:'The same invoice can be paid twice because Shree Packaging exists under two vendor codes.',
+  actions:['Block invoice B (₹48.6 L) from payment.','Merge V-207115 into V-100482 and deactivate the duplicate code.','Make the PAN / GSTIN duplicate check mandatory at vendor creation.'],
+  check:'Re-run the duplicate-vendor check across all active vendors and confirm no open invoices remain on V-207115.',
+  refs:[['PTP-DUP-03','Probable duplicate invoice','₹48.6 L','critical']] },
+ c_oprice:{ title:'Correct the price master and settle the pricing difference',
+  summary:'The deductions and Meridian’s hold have one source: three renewed contracts never loaded at the new prices.',
+  actions:['Update the price master for the 3 contracts renewed in July (fix at source, RC-04).','Issue credit notes for the ₹0.21 Cr pricing difference on Meridian’s 9 invoices.','Agree a dated payment plan for the undisputed ₹3.1 Cr with Meridian’s CFO; validate the ₹2.08 Cr pricing deductions.'],
+  check:'Confirm new invoices match the renewed prices and that pricing deductions stop recurring.',
+  refs:[['O2C-STR-09','Strategic account: ₹5.2 Cr exposure, payment blocked by pricing dispute','₹5.20 Cr','high'],['O2C-DED-02','Open deductions ₹5.2 Cr; pricing cluster 40%','₹5.20 Cr','medium']] },
+ c_ptp:{ title:'Escalate for a revised commitment and tighten credit',
+  summary:'A second broken promise in a year moves Corvia from routine collection to credit risk.',
+  actions:['Escalate to Corvia’s finance head for a revised, dated commitment.','Put new orders above ₹25 L on credit review.','Include the account in the ECL review.'],
+  check:'Track receipt against the revised promise date and the account’s overdue ageing.',
+  refs:[['O2C-PTP-08','Promise to pay broken: ₹3.3 Cr','₹3.30 Cr','high']] },
+ c_headroom:{ title:'Approve within the policy cap, with shorter terms',
+  summary:'The customer has paid every invoice within 60 days for four years, but the bureau score is falling and ₹1.8 Cr is overdue.',
+  actions:['Approve ₹15 Cr (within the 125% cap) on 45-day terms instead of 60.','Make it conditional on clearing the ₹1.8 Cr overdue.','Ask for a ₹3 Cr bank guarantee before going higher.'],
+  check:'Review utilisation and the bureau score monthly while the limit is above ₹12 Cr.',
+  refs:[['O2C-CRL-07','Credit limit increase above policy','+₹6.0 Cr','high']] },
+ c_overlim:{ title:'Hold new orders until the overdue invoice is paid',
+  summary:'Exposure is ₹35 L above the approved limit.',
+  actions:['Hold new orders above ₹10 L.','Chase the overdue invoice.','Release orders once exposure is back within the ₹2.00 Cr limit.'],
+  check:'Confirm exposure is within limit before releasing the hold.',
+  refs:[['O2C-CRD-05','Customer over credit limit by ₹35 L','₹35 L','low']] },
+ c_deduct:{ title:'Reject the deduction and recover ₹46 L',
+  summary:'The POD and weighbridge evidence contradict the shortage claim.',
+  actions:['Reject the deduction.','Send the signed POD and weighbridge record to NutriBlend.','Ask for payment of ₹0.46 Cr within 15 days.'],
+  check:'Confirm the ₹0.46 Cr is received or formally disputed with new evidence.',
+  refs:[['O2C-DED-10','Shortage deduction contradicted by proof of delivery','₹46 L','medium']] },
+ c_dupc:{ title:'Reject the new account and update the existing one',
+  summary:'A second account for the same legal entity would double the credit available.',
+  actions:['Reject the onboarding request.','Update C-40118 with the new legal name.','Review the combined limit once (₹1.5 Cr requested).'],
+  check:'Confirm a single active account for the PAN and that the limit reflects combined exposure.',
+  refs:[['O2C-ONB-06','New customer may duplicate an existing account','92% match','medium']] },
+ c_git:{ title:'Book goods in transit at the closing rate',
+  summary:'Title passed on or before 30-Sep, so the shipments are ours at the book date.',
+  actions:['Book ₹12.6 Cr goods in transit for the 19 shipments at the 30-Sep closing rate.','Exclude the four DAP shipments (₹2.1 Cr), which remain the supplier’s until delivery.','Record imports when title passes under the Incoterm, not on arrival.'],
+  check:'Receipts Not Booked falls from ₹19.0 Cr to ₹6.4 Cr and inventory rises to ₹654.6 Cr once decided.',
+  refs:[['SC-GIT-06','19 inbound shipments owned at 30-Sep not recorded','₹12.6 Cr','high']] },
+ c_gr:{ title:'Post the missing receipts before the materials period locks',
+  summary:'One cause shows in two towers: inventory missing in SC and invoices blocked in P2P.',
+  actions:['Post the 142 goods receipts dated 30-Sep from the manual gate register, or accrue them.','Ask the three plant heads to clear goods receipts within 48 hours to release the GR-blocked invoices.','Enforce goods receipt within 48 hours at IN-02 Plant A, IN-05 and IN-04.'],
+  check:'Receipts are posted before WD+3 18:00, and GR-missing blocked invoices fall from ₹18.6 Cr.',
+  refs:[['SC-GRL-10','142 receipts at the gate without a goods receipt','₹6.4 Cr','high'],['PTP-BLK-02','Blocked invoices ₹32.0 Cr (376); GR missing at 3 plants','₹32.0 Cr','high']] },
+ c_rebase:{ title:'Re-baseline the US generics forecast',
+  summary:'The forecast still reflects pre-August demand, and purchasing keeps replenishing to it.',
+  actions:['Re-baseline the US generics forecast now.','Require a re-baseline whenever bias exceeds 15% for two months.','Slow replenishment so excess stock is used up.'],
+  check:'Track bias and accuracy for US generics monthly; US-01 cover should move back towards the 60-day maximum.',
+  refs:[['SC-FCB-15','US generics over-forecast by 43%; plan not re-baselined','₹6.2 Cr','high'],['SC-EXC-11','Stock above policy maximum: ₹38.5 Cr','₹38.5 Cr','medium']] },
+ c_reorder:{ title:'Release cash by cancelling open POs and resetting reorder points',
+  summary:'Excess ties up working capital rather than causing a loss.',
+  actions:['Cancel or defer 37 open POs (₹14.6 Cr).','Reset reorder parameters for the 164 SKUs.','Keep service level at 98% or above.'],
+  check:'DIO falls by about 1 day; interest saved is about ₹0.33 Cr a quarter.',
+  refs:[['SC-EXC-11','Stock above policy maximum: ₹38.5 Cr','₹38.5 Cr','medium']] },
+ c_nrv:{ title:'Write the 14 SKUs down to net realisable value',
+  summary:'Ind AS 2 requires inventory at the lower of cost and net realisable value.',
+  actions:['Write down ₹3.40 Cr: US-01 ₹2.6 Cr, IN-03 ₹0.8 Cr.','Re-test NRV monthly while competitor pricing settles.'],
+  check:'Reconcile the write-down to cost, selling price, channel deductions (31%) and cost to sell (6%) for each SKU.',
+  refs:[['SC-NRV-03','14 finished-goods SKUs carried above net realisable value','₹3.40 Cr','high']] },
+ c_sprice:{ title:'Load renewed prices, recover overbilling, release correct invoices',
+  summary:'The ₹7.0 Cr of price blocks has three separate parts.',
+  actions:['Load the renewed prices for the five contracts to release ₹3.9 Cr of correct invoices.','Recover ₹2.3 Cr overbilled by three suppliers.','Accept ₹0.8 Cr of FX and tolerance; update prices whenever a contract renews.'],
+  check:'Confirm the October standard-cost update uses the renewed prices (inventory revalues by about ₹1.6 Cr).',
+  refs:[['SC-PPV-07','Invoice prices differ from contracts: ₹7.0 Cr blocked','₹7.0 Cr','medium']] },
+ c_yield:{ title:'Expense the abnormal yield loss',
+  summary:'Ind AS 2.16 requires abnormal waste to be expensed, not carried in stock.',
+  actions:['Move ₹2.1 Cr from closing stock to the P&L.','Record the contamination event against reactor R-3.'],
+  check:'Confirm closing stock for batches B-0917 and B-0922 carries only normal yield loss.',
+  refs:[['SC-VAR-13','Abnormal yield loss sitting in closing stock','₹2.10 Cr','high']] },
+ c_custody:{ title:'Hold the write-off and recount independently',
+  summary:'Holding, counting and scrapping are not segregated, so the shortage must be investigated before any write-off.',
+  actions:['Hold the ₹1.86 Cr write-off.','Run an independent recount of the three SKUs.','Freeze the storekeeper’s scrap rights; separate counting and scrap approval from custody.'],
+  check:'Reconcile the recount to the books and every scrap posting to a QA rejection note.',
+  refs:[['SC-CNT-04','Cycle-count shortage 3.1%; catalysts short by 14%','₹1.86 Cr','critical']] },
+ c_pdc:{ title:'Qualify a second Pd/C catalyst supplier',
+  summary:'₹2.2 Cr of open orders and production is exposed while there is one source.',
+  actions:['Qualify an alternate supplier.','Hold extra safety stock until then.'],
+  check:'Track Polychem OTIF and IN-05 batch delays monthly.',
+  refs:[['SC-SUP-35','Sole-source catalyst supplier OTIF at 76%','₹2.2 Cr','medium']] },
+ c_backup:{ title:'Reassign the stalled close tasks today',
+  summary:'Three critical-path tasks have stalled at IN-07; each has a single owner.',
+  actions:['Reassign the IN-07 ↔ IN-01 reconciliation to a backup.','Approve the 14 accruals (₹2.71 Cr).','Request a manual PMO extract; name a backup for every close task.'],
+  check:'Track IN-07 against the WD+4 close and confirm every task has a named backup.',
+  refs:[['RTR-CLS-01','IN-07 predicted to close WD+6, two days late','+2 close days','critical']] },
+ c_revjnl:{ title:'Hold the journal from the pack and request support',
+  summary:'A ₹2.40 Cr revenue journal without a billing document sits in the September numbers.',
+  actions:['Hold the journal from the pack and obtain the sales evidence, or reverse it.','Notify Internal Audit.','Make attachments and an independent approver mandatory for revenue journals.'],
+  check:'Confirm the journal is supported or reversed before the pack is signed.',
+  refs:[['RTR-JNL-02','Anomalous manual journal of ₹2.40 Cr to revenue at period end','₹2.40 Cr','critical']] },
+ c_reverse:{ title:'Reverse the August accrual',
+  summary:'September expense is overstated by ₹0.86 Cr.',
+  actions:['Post the reversal of JE-IN03-0831-2210 dated 01-Sep.','Default the reversal flag on accrual journal types.','Match open accruals to incoming invoices each month.'],
+  check:'Confirm September contract-labour expense carries one charge for the work.',
+  refs:[['RTR-ACR-09','August accrual not reversed: expense counted twice','₹86 L','medium']] },
+ c_superuser:{ title:'Reverse the back-posting and remove override rights',
+  summary:'August was changed after it was reported, under a shared ID.',
+  actions:['Reverse the journal from August and repost it in the open period.','Remove period-override rights from shared IDs.','Require finance sign-off for emergency access to finance roles.'],
+  check:'Confirm August ledger freight is back to the reported ₹1.86 Cr.',
+  refs:[['RTR-PER-10','Posting into a closed period: August','₹42 L','high']] },
+ c_iccut:{ title:'Book the two items in US-01, then certify',
+  summary:'The ₹3.10 Cr difference is fully explained by two items.',
+  actions:['In US-01, book goods in transit (₹2.60 Cr) and correct the FX translation (₹0.50 Cr).','Eliminate and certify the reconciliation.','Start intercompany confirmations on WD−2; enforce the closing rate for monetary balances.'],
+  check:'The IN-02 ↔ US-01 reconciliation matches to zero.',
+  refs:[['RTR-REC-03','Intercompany break IN-02 ↔ US-01 of ₹3.10 Cr','₹3.10 Cr','high']] },
+ c_air:{ title:'Confirm the reason for air freight, then sign the commentary',
+  summary:'71% of the variance is the shift to air freight, and its reason is not yet recorded.',
+  actions:['Confirm the reason for air freight with Logistics.','Check the coding of September freight lines (1,140 lines were recoded in Q2).','Sign the variance commentary; require approval for air freight above the budgeted share.'],
+  check:'The commentary is signed by WD+2 and freight coding is confirmed.',
+  refs:[['RTR-VAR-04','Freight outward +₹14.2 Cr (+18%) against budget','₹14.2 Cr','medium']] }
+};
+})();
+</script>
+<script>/* ══ EXPLORE CORE ══════════════════════════════════════════════════════════
+   Shared machinery behind the variations: model, camera, input, reader,
+   palette, filters. A variation supplies a spec:
+
+     place(H)          write n.tx / n.ty (targets); core springs nodes to them
+     render(ctx, H)    draw everything — the variation owns the picture
+     pick(x, y, H)     optional; default is nearest node
+     drag              optional 'free' | 'axis' | false      (default 'free')
+     pan               optional false to disable background panning
+     spring            optional false to place nodes instantly
+     panToSelection    optional false to keep the camera fixed on selection
+     relayoutOnSelection optional false to preserve node positions on selection
+     onSelect(n, H)    optional hook
+
+   H is the helper bag: nodes, edges, adj, S, W, H, sx, sy, wx, wy, hexA,
+   tracked, clearTrack, visible, focus, alphaOf, select, byId.
+─────────────────────────────────────────────────────────────────────────── */
+
+window.Explore = function (spec) {
+  'use strict';
+
+  var D = window.GRAPH, SHEETS = window.SHEETS_HTML || {};
+
+  /* A page may ask for an alternate palette (spec.palette:'pastel'). Resolve it
+     in one place so canvas, legend, reader and search all agree. */
+  function paint(rec) { return (spec.palette && rec[spec.palette]) || rec.color; }
+  var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var RADIUS = { kpi:9, principle:8, entity:11, fn:8, cause:7 };
+
+  /* ── model ─────────────────────────────────────────────────────────── */
+  var nodes = D.nodes.map(function (n) {
+    return {
+      id:n[0], label:n[1], type:n[2], ring:n[3], clock:n[4], state:n[5],
+      sheet:n[6], sub:n[7], text:n[8], go:n[9] || '',
+      x:0, y:0, tx:0, ty:0, vx:0, vy:0, pinned:false,
+      r:RADIUS[n[2]] || 5, color:paint(D.types[n[2]]), deg:0,
+      rank:(D.tier && D.tier[n[0]]) || 0,
+    };
+  });
+
+  /* the ladder: rank → its stratum record, 0 = unruled */
+  var TIERS = D.tiers || [];
+  var tierOf = {};
+  TIERS.forEach(function (t) { tierOf[t.n] = t; });
+  var byId = {};
+  nodes.forEach(function (n) { byId[n.id] = n; });
+
+  var edges = D.edges.filter(function (e) { return byId[e[0]] && byId[e[1]]; })
+    .map(function (e) { return { a:byId[e[0]], b:byId[e[1]], rel:e[2] }; });
+
+  var adj = {};
+  nodes.forEach(function (n) { adj[n.id] = []; });
+  edges.forEach(function (e) {
+    adj[e.a.id].push({ node:e.b, rel:e.rel, out:true });
+    adj[e.b.id].push({ node:e.a, rel:e.rel, out:false });
+    e.a.deg++; e.b.deg++;
+  });
+
+  var S = {
+    depth:0, gaps:true, on:{}, onR:{}, sel:null, hover:null, drag:null,
+    cam:{ x:0, y:0, k:1 }, panning:false, t0:performance.now(), reveal:RM ? 1e5 : 0,
+  };
+  Object.keys(D.types).forEach(function (t) { S.on[t] = true; });
+  TIERS.forEach(function (t) { S.onR[t.n] = true; });
+
+  var KEY = 'estate:' + (spec.id || 'v');
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (typeof saved.gaps === 'boolean') S.gaps = saved.gaps;
+    if (saved.on) Object.keys(saved.on).forEach(function (t) { if (t in S.on) S.on[t] = saved.on[t]; });
+    if (saved.onR) Object.keys(saved.onR).forEach(function (r) { if (r in S.onR) S.onR[r] = saved.onR[r]; });
+    if (saved.pins) nodes.forEach(function (n) {
+      var p = saved.pins[n.id];
+      if (p) { n.x = n.tx = p[0]; n.y = n.ty = p[1]; n.pinned = true; }
+    });
+  } catch (e) {}
+
+  function save() {
+    var pins = {};
+    nodes.forEach(function (n) { if (n.pinned) pins[n.id] = [Math.round(n.x), Math.round(n.y)]; });
+    try { localStorage.setItem(KEY, JSON.stringify({ gaps:S.gaps, on:S.on, onR:S.onR, pins:pins })); } catch (e) {}
+  }
+
+  /* ── visibility ────────────────────────────────────────────────────── */
+  var visible = {}, focus = null, focusEdge = null;
+
+  function hops(from, d) {
+    var seen = {}, frontier = [from];
+    seen[from.id] = 0;
+    for (var i = 1; i <= d; i++) {
+      var next = [];
+      frontier.forEach(function (n) {
+        adj[n.id].forEach(function (l) {
+          if (!(l.node.id in seen)) { seen[l.node.id] = i; next.push(l.node); }
+        });
+      });
+      frontier = next;
+    }
+    return seen;
+  }
+
+  function livePaths() { return spec.paths ? spec.paths() : (D.paths || []); }
+
+  function recompute() {
+    var scope = (S.sel && S.depth > 0) ? hops(S.sel, S.depth) : null;
+    nodes.forEach(function (n) {
+      visible[n.id] = S.on[n.type] && S.onR[n.rank] !== false &&
+        (n.state !== 'gap' || S.gaps) && (!scope || n.id in scope) && (!spec.filter || spec.filter(n));
+    });
+    if (S.sel) visible[S.sel.id] = true;
+    var active = S.hover || S.sel;
+    if (!active) { focus = null; focusEdge = null; return; }
+    focus = {}; focusEdge = {};
+    focus[active.id] = 1;
+    livePaths().forEach(function (p) {
+      if (p.indexOf(active.id) < 0) return;
+      p.forEach(function (id, i) { focus[id] = 1; if (i) focusEdge[p[i - 1] + '>' + id] = 1; });
+    });
+  }
+
+  /* ── canvas ────────────────────────────────────────────────────────── */
+  var cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  var W = 0, Hh = 0, dpr = 1;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; Hh = cv.clientHeight;
+    cv.width = W * dpr; cv.height = Hh * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    H.W = W; H.H = Hh;
+    relayout();
+    if (spec.spring === false) nodes.forEach(function (n) { n.x = n.tx; n.y = n.ty; });
+    if (spec.frame) spec.frame(H);
+  }
+
+  // layouts read `visible`, so visibility must be resolved before placing
+  function relayout() {
+    recompute();
+    if (spec.place) spec.place(H);
+  }
+
+  function sx(x) { return (x - S.cam.x) * S.cam.k + W / 2; }
+  function sy(y) { return (y - S.cam.y) * S.cam.k + Hh / 2; }
+  function wx(x) { return (x - W / 2) / S.cam.k + S.cam.x; }
+  function wy(y) { return (y - Hh / 2) / S.cam.k + S.cam.y; }
+
+  function tracked(size, sp, weight) {
+    ctx.font = (weight || 400) + ' ' + size + 'px ui-monospace, "SF Mono", Menlo, monospace';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = sp + 'px';
+  }
+  function clearTrack() { if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; }
+  function sans(size, weight) {
+    ctx.font = (weight || 400) + ' ' + size + 'px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  }
+
+  function hexA(hex, a) {
+    var v = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (v >> 16 & 255) + ',' + (v >> 8 & 255) + ',' + (v & 255) + ',' + a + ')';
+  }
+
+  function alphaOf(n) {
+    if (!visible[n.id]) return 0;
+    if (!focus) return 1;
+    return focus[n.id] ? 1 : 0.12;
+  }
+
+  var H = {
+    nodes:nodes, edges:edges, adj:adj, byId:byId, types:D.types, S:S, ctx:ctx,
+    W:W, H:Hh, sx:sx, sy:sy, wx:wx, wy:wy, hexA:hexA, tracked:tracked,
+    clearTrack:clearTrack, sans:sans, visible:visible, alphaOf:alphaOf,
+    tiers:TIERS, tierOf:tierOf, paint:paint, paths:function () { return livePaths(); },
+    get focus() { return focus; }, get focusEdge() { return focusEdge; },
+    select:function (n) { select(n); }, save:save,
+    hover:function (n) { S.hover = n; readout(n); cv.classList.toggle('on-node', !!n); },
+    relayout:function () { relayout(); },
+  };
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ── loop ──────────────────────────────────────────────────────────── */
+  function integrate() {
+    if (spec.spring === false) {
+      nodes.forEach(function (n) { if (n !== S.drag && !n.pinned) { n.x = n.tx; n.y = n.ty; } });
+      return;
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n === S.drag || n.pinned) { n.vx = n.vy = 0; continue; }
+      n.vx = (n.vx + (n.tx - n.x) * 0.16) * 0.68;
+      n.vy = (n.vy + (n.ty - n.y) * 0.16) * 0.68;
+      n.x += n.vx; n.y += n.vy;
+    }
+  }
+
+  function loop() {
+    if (!RM) S.reveal = Math.min(1e5, (performance.now() - S.t0) * 0.9);
+    integrate();
+    recompute();
+    ctx.clearRect(0, 0, W, Hh);
+    // A throw inside a variation's render used to kill the rAF chain and freeze
+    // the whole instrument silently — no motion, no hover, no clue why.
+    try { spec.render(ctx, H); }
+    catch (err) { if (!loop.warned) { loop.warned = 1; console.error('render:', err); } }
+    requestAnimationFrame(loop);
+  }
+
+  /* ── picking & pointer ─────────────────────────────────────────────── */
+  function px(e) { return e.clientX - cv.getBoundingClientRect().left; }
+  function py(e) { return e.clientY - cv.getBoundingClientRect().top; }
+
+  function pick(x, y) {
+    if (spec.pick) return spec.pick(x, y, H);
+    var best = null, bd = 1e9;
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      var n = nodes[i];
+      if (!visible[n.id]) continue;
+      var dx = x - sx(n.x), dy = y - sy(n.y), d2 = dx * dx + dy * dy;
+      var hit = Math.max(11, n.r * S.cam.k + 6);
+      if (d2 < hit * hit && d2 < bd) { bd = d2; best = n; }
+    }
+    return best;
+  }
+
+  var down = null, moved = false;
+  var dragMode = spec.drag === undefined ? 'free' : spec.drag;
+
+  cv.addEventListener('pointerdown', function (e) {
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    moved = false;
+    var n = pick(px(e), py(e));
+    down = { x:px(e), y:py(e), node:n };
+    if (n && dragMode) S.drag = n;
+    else if (spec.pan !== false) { S.panning = true; cv.classList.add('grabbing'); }
+    retireCue();
+  });
+
+  cv.addEventListener('pointermove', function (e) {
+    var x = px(e), y = py(e);
+    if (down && (Math.abs(x - down.x) > 3 || Math.abs(y - down.y) > 3)) moved = true;
+    if (S.drag) {
+      if (dragMode === 'axis' && spec.constrain) spec.constrain(S.drag, wx(x), wy(y), H);
+      else { S.drag.x = S.drag.tx = wx(x); S.drag.y = S.drag.ty = wy(y); }
+      S.drag.vx = S.drag.vy = 0;
+      return;
+    }
+    if (S.panning && down) {
+      // a variation may claim the background drag — a 3-D one needs it to orbit
+      if (spec.pan) spec.pan(x - down.x, y - down.y, H);
+      else {
+        S.cam.x -= (x - down.x) / S.cam.k;
+        S.cam.y -= (y - down.y) / S.cam.k;
+      }
+      down.x = x; down.y = y;
+      return;
+    }
+    var n = pick(x, y);
+    if (n !== S.hover) { S.hover = n; readout(n); cv.classList.toggle('on-node', !!n); }
+  });
+
+  cv.addEventListener('pointerup', function () {
+    if (S.drag) {
+      if (moved) { S.drag.pinned = true; save(); }
+      else select(S.drag);
+      S.drag = null;
+    } else if (down && !moved) {
+      // no drag mode: the node never became S.drag, so the click resolves here
+      select(down.node || null);
+    }
+    S.panning = false; down = null;
+    cv.classList.remove('grabbing');
+  });
+
+  cv.addEventListener('dblclick', function (e) {
+    var n = pick(px(e), py(e));
+    if (n && n.pinned) { n.pinned = false; save(); }
+  });
+
+  cv.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    if (spec.zoom === false) return;
+    var b = { x:wx(px(e)), y:wy(py(e)) };
+    S.cam.k = Math.max(0.24, Math.min(4, S.cam.k * Math.pow(0.999, e.deltaY * 1.4)));
+    S.cam.x += b.x - wx(px(e));
+    S.cam.y += b.y - wy(py(e));
+    retireCue();
+  }, { passive:false });
+
+  /* ── reader ────────────────────────────────────────────────────────── */
+  var reader = document.getElementById('reader');
+
+  function select(n) {
+    S.sel = n;
+    if (!n) { reader.classList.remove('open'); if (spec.onSelect) spec.onSelect(null, H); return; }
+    renderReader(n);
+    reader.classList.add('open');
+    if (S.depth > 0 && spec.relayoutOnSelection !== false) relayout();
+    if (spec.onSelect) spec.onSelect(n, H);
+    else if (spec.panToSelection !== false) panTo(n);
+  }
+
+  function panTo(n) {
+    var panel = window.innerWidth > 900 ? Math.min(560, window.innerWidth * 0.46) : 0;
+    S.cam.x = n.x + (panel / 2) / S.cam.k;
+    S.cam.y = n.y;
+  }
+  H.panTo = panTo;
+
+  function el(tag, cls, html) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+
+  function stateLabel(s) {
+    return s === 'in' ? 'Evidenced — figure in the model'
+         : s === 'ctx' ? 'Hypothesis — to validate'
+         : 'Gap — not in the model';
+  }
+  function subtitle(n) {
+    var st = stateLabel(n.state);
+    if (!n.sub || st.toLowerCase().indexOf(n.sub.toLowerCase()) > -1) return st;
+    return n.sub + ' · ' + st;
+  }
+
+  function tierBand(n) {
+    var t = tierOf[n.rank];
+    if (!t) return '';
+    return '<div class="rd-tier" style="--tc:' + paint(t) + '">' +
+      '<span class="tk">' + (t.n ? 'Layer ' + t.n : 'Off-ladder') + '</span>' +
+      '<span class="tn">' + t.label + '</span>' +
+      '<span class="te">' + t.edit + '</span>' +
+      '<p class="tr">' + t.rule + '</p></div>';
+  }
+  H.tierBand = tierBand;
+
+  /* the decision behind a root cause: recommended action, how to verify, and the exceptions to decide in the Executive view */
+  var DECISIONS = window.GRAPH.decisions || {};
+  var SEV_LABEL = { critical:'Critical', high:'High', medium:'Medium', low:'Low' };
+
+  function suggestionCard(n) {
+    if (n.type !== 'cause' || !DECISIONS[n.id]) return null;
+    var d = DECISIONS[n.id];
+    var card = el('section', 'ai-suggestion');
+    card.setAttribute('aria-label', 'Decision');
+    card.style.setProperty('--suggestion-accent', n.color);
+
+    var head = el('div', 'ai-suggestion-head');
+    head.appendChild(el('span', 'ai-suggestion-label', 'Decision'));
+    head.appendChild(el('span', 'ai-suggestion-badge', n.state === 'in' ? 'Cause evidenced' : 'Owner confirms cause'));
+    card.appendChild(head);
+
+    var title = el('h3');
+    title.textContent = d.title;
+    card.appendChild(title);
+
+    var summary = el('p');
+    summary.textContent = d.summary;
+    card.appendChild(summary);
+
+    var actions = el('ul');
+    d.actions.forEach(function (action) {
+      var item = el('li');
+      item.textContent = action;
+      actions.appendChild(item);
+    });
+    card.appendChild(actions);
+
+    var check = el('p', 'ai-suggestion-check');
+    check.appendChild(el('strong', '', 'How to verify'));
+    check.appendChild(document.createTextNode(d.check));
+    card.appendChild(check);
+
+    var refs = el('div', 'xv-refs');
+    d.refs.forEach(function (r) {
+      var a = el('a', 'xv-decide');
+      a.href = 'desk.html?x=' + encodeURIComponent(r[0]);
+      var top = el('span', 'xv-d-top');
+      top.appendChild(el('b', '', 'Decide'));
+      top.appendChild(document.createTextNode(r[0] + ' · ' + (SEV_LABEL[r[3]] || r[3]) + ' · ' + r[2]));
+      a.appendChild(top);
+      var t = el('span', 'xv-d-t');
+      t.textContent = r[1];
+      a.appendChild(t);
+      refs.appendChild(a);
+    });
+    card.appendChild(refs);
+
+    var disclaimer = el('p', 'ai-suggestion-disclaimer');
+    disclaimer.textContent = 'Recommended action from the tower’s decision record. The accountable owner decides in the Executive view, where the evidence, the options and the audit trail are kept.';
+    card.appendChild(disclaimer);
+    return card;
+  }
+
+  /* every KPI → cause chain that runs through the selected node, each step clickable */
+  function pathsSection(n) {
+    var all = livePaths();
+    var mine = all.filter(function (p) { return p.indexOf(n.id) >= 0; });
+    if (!mine.length) return null;
+    var sec = el('div', 'rd-sec');
+    sec.appendChild(el('span', 'ml', mine.length + ' of ' + all.length + ' paths run through here'));
+    mine.forEach(function (p) {
+      var card = el('div', 'rd-path');
+      p.forEach(function (id, i) {
+        if (i) card.appendChild(el('span', 'arr', '→'));
+        var m = byId[id];
+        var b = el('button', 'step' + (id === n.id ? ' me' : ''));
+        var d = el('span', 'dot'); d.style.background = m.color;
+        b.appendChild(d);
+        b.appendChild(document.createTextNode(m.label));
+        b.addEventListener('click', function () { select(m); });
+        card.appendChild(b);
+      });
+      sec.appendChild(card);
+    });
+    return sec;
+  }
+
+  function renderReader(n) {
+    var t = D.types[n.type];
+    document.getElementById('rd-head').innerHTML =
+      '<div class="rd-kind" style="color:' + n.color + '"><i style="background:' + n.color + '"></i>' +
+      '<span class="ml" style="color:' + n.color + '">' + t.label + '</span></div>' +
+      '<h2>' + n.label + '</h2><p class="rd-sub">' + subtitle(n) + '</p>' + tierBand(n);
+
+    var body = document.getElementById('rd-body');
+    body.innerHTML = '';
+    body.scrollTop = 0;
+    body.appendChild(el('p', 'lead', n.text));
+    if (n.go) {
+      var go = el('a', 'rd-open xv-go', 'Open in ' + (n.sheet || 'the tower') + ' ↗');
+      go.href = n.go;
+      body.appendChild(go);
+    }
+    var pathSec = pathsSection(n);
+    if (pathSec) body.appendChild(pathSec);
+    var suggestion = suggestionCard(n);
+    if (suggestion) body.appendChild(suggestion);
+
+    var links = adj[n.id].slice().sort(function (a, b) {
+      return a.node.label.localeCompare(b.node.label);
+    });
+    if (links.length) {
+      var sec = el('div', 'rd-sec');
+      sec.appendChild(el('span', 'ml', links.length === 1 ? 'Direct link' : 'Direct links'));
+      links.forEach(function (l) {
+        var b = el('button', 'link');
+        b.innerHTML = '<span class="rel">' + (l.out ? '↓ ' : '↑ ') + l.rel + '</span>' +
+          '<span class="dot" style="background:' + l.node.color + '"></span>' +
+          '<span class="to">' + l.node.label + '</span>';
+        b.addEventListener('click', function () { select(l.node); });
+        sec.appendChild(b);
+      });
+      body.appendChild(sec);
+    }
+
+    if (n.sheet && SHEETS[n.sheet]) {
+      var s = SHEETS[n.sheet];
+      var btn = el('button', 'rd-open', 'Read ' + s.sheet + ' · ' + s.title);
+      var holder = el('div', 'sheet-body');
+      holder.hidden = true;
+      btn.addEventListener('click', function () {
+        holder.hidden = !holder.hidden;
+        if (!holder.hidden && !holder.innerHTML) holder.innerHTML = s.html;
+        btn.textContent = (holder.hidden ? 'Read ' : 'Hide ') + s.sheet + ' · ' + s.title;
+      });
+      body.appendChild(btn);
+      body.appendChild(holder);
+    }
+  }
+
+  document.getElementById('rd-close').addEventListener('click', function () { select(null); });
+
+  /* ── readout ───────────────────────────────────────────────────────── */
+  var ro = document.getElementById('ro-body');
+  function readout(n) {
+    if (!n) { ro.innerHTML = '<p class="hint">' + (spec.hint || 'Click anything to open it.') + '</p>'; return; }
+    var t = tierOf[n.rank];
+    ro.innerHTML = '<div class="rn">' + n.label + '</div><div class="rs">' +
+      D.types[n.type].label.toUpperCase() + ' · ' + adj[n.id].length + (adj[n.id].length === 1 ? ' link' : ' links') +
+      (t && t.n ? ' · <span style="color:' + paint(t) + '">LAYER ' + t.n + '</span>' : '') + '</div>';
+  }
+  readout(null);
+
+  /* ── legend ────────────────────────────────────────────────────────── */
+  var legend = document.getElementById('legend-rows');
+  if (legend) {
+    Object.keys(D.types).forEach(function (t) {
+      var count = nodes.filter(function (n) { return n.type === t; }).length;
+      if (!count) return;
+      var b = el('button', 'lrow');
+      b.dataset.t = t;
+      b.setAttribute('aria-pressed', String(S.on[t]));
+      b.innerHTML = '<span class="dot" style="background:' + paint(D.types[t]) + ';color:' +
+        paint(D.types[t]) + '"></span><span class="nm">' + D.types[t].label +
+        '</span><span class="ct">' + count + '</span>';
+      b.addEventListener('click', function () {
+        S.on[t] = !S.on[t];
+        b.setAttribute('aria-pressed', String(S.on[t]));
+        relayout();
+        save();
+      });
+      legend.appendChild(b);
+    });
+  }
+
+  /* ── layer dropdown ─────────────────────────────────────────────────── */
+  var layerSelect = document.getElementById('layer-select');
+  if (layerSelect) {
+    var enabledTiers = TIERS.filter(function (t) { return S.onR[t.n] !== false; });
+    if (enabledTiers.length === 1) {
+      layerSelect.value = String(enabledTiers[0].n);
+    } else {
+      layerSelect.value = 'all';
+      TIERS.forEach(function (t) { S.onR[t.n] = true; });
+    }
+
+    layerSelect.addEventListener('change', function () {
+      var v = layerSelect.value;
+
+      /* "All layers" restores every layer; otherwise show only the chosen layer. */
+      TIERS.forEach(function (t) {
+        S.onR[t.n] = (v === 'all' || String(t.n) === v);
+      });
+
+      relayout();
+      save();
+    });
+  }
+
+  /* ── controls ──────────────────────────────────────────────────────── */
+  var depth = document.getElementById('depth'), depthOut = document.getElementById('depth-out');
+  if (depth) depth.addEventListener('input', function () {
+    S.depth = +depth.value;
+    depthOut.textContent = S.depth === 0 ? 'all' : S.depth;
+    relayout();
+  });
+
+  var gapsBtn = document.getElementById('btn-gaps');
+  if (gapsBtn) {
+    gapsBtn.style.color = S.gaps ? 'var(--rose)' : '';
+    gapsBtn.addEventListener('click', function () {
+      S.gaps = !S.gaps;
+      gapsBtn.style.color = S.gaps ? 'var(--rose)' : '';
+      relayout();
+      save();
+    });
+  }
+
+  function fit() {
+    var xs = [], ys = [];
+    nodes.forEach(function (n) { if (visible[n.id]) { xs.push(n.tx); ys.push(n.ty); } });
+    if (!xs.length) return;
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var pad = spec.fitPad || 220;
+    S.cam.x = (x0 + x1) / 2; S.cam.y = (y0 + y1) / 2;
+    S.cam.k = Math.max(0.24, Math.min(2, Math.min(W / (x1 - x0 + pad), Hh / (y1 - y0 + pad))));
+  }
+  H.fit = fit;
+  // a variation whose furniture is bigger than its nodes can frame itself
+  function doFit() { if (spec.frame) spec.frame(H); else fit(); }
+  H.doFit = doFit;
+
+  var fitBtn = document.getElementById('btn-fit');
+  if (fitBtn) fitBtn.addEventListener('click', doFit);
+  var resetBtn = document.getElementById('btn-reset');
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    nodes.forEach(function (n) { n.pinned = false; });
+    relayout();
+    save();
+  });
+
+  /* ── palette ───────────────────────────────────────────────────────── */
+  var pal = document.getElementById('palette'), pq = document.getElementById('pq');
+  var presults = document.getElementById('presults'), pcur = 0, phits = [];
+
+  function openPal() { pal.hidden = false; pq.value = ''; renderPal(''); pq.focus(); retireCue(); }
+  function closePal() { pal.hidden = true; }
+
+  function renderPal(q) {
+    q = q.trim().toLowerCase();
+    phits = nodes.filter(function (n) {
+      return !q || (n.label + ' ' + n.sub + ' ' + n.text).toLowerCase().indexOf(q) > -1;
+    }).slice(0, 40);
+    pcur = 0;
+    if (!phits.length) { presults.innerHTML = '<p class="pal-empty">Nothing in the estate matches that.</p>'; return; }
+    presults.innerHTML = phits.map(function (n, i) {
+      return '<button class="pres' + (i === 0 ? ' on' : '') + '" data-i="' + i + '">' +
+        '<span class="dot" style="background:' + n.color + '"></span>' +
+        '<span class="pn">' + n.label + '</span>' +
+        '<span class="pt">' + D.types[n.type].label + '</span></button>';
+    }).join('');
+  }
+
+  function movePal(d) {
+    var els = presults.querySelectorAll('.pres');
+    if (!els.length) return;
+    els[pcur].classList.remove('on');
+    pcur = (pcur + d + els.length) % els.length;
+    els[pcur].classList.add('on');
+    els[pcur].scrollIntoView({ block:'nearest' });
+  }
+
+  function reveal(n) {
+    if (!n) return;
+    S.on[n.type] = true;
+    S.onR[n.rank] = true;
+    var row = document.querySelector('.lrow[data-t="' + n.type + '"]');
+    if (row) row.setAttribute('aria-pressed', 'true');
+    var trow = document.querySelector('.trow[data-r="' + n.rank + '"]');
+    if (trow) trow.setAttribute('aria-pressed', 'true');
+    if (n.state === 'gap' && !S.gaps && gapsBtn) gapsBtn.click();
+    relayout();
+    select(n);
+  }
+
+  pq.addEventListener('input', function () { renderPal(pq.value); });
+  presults.addEventListener('click', function (e) {
+    var b = e.target.closest('.pres');
+    if (b) { closePal(); reveal(phits[+b.dataset.i]); }
+  });
+  pal.addEventListener('mousedown', function (e) { if (e.target === pal) closePal(); });
+  var searchBtn = document.getElementById('searchBtn');
+  if (searchBtn) searchBtn.addEventListener('click', openPal);
+
+  document.addEventListener('keydown', function (e) {
+if (!pal.hidden) {
+      if (e.key === 'Escape') closePal();
+      else if (e.key === 'ArrowDown') { e.preventDefault(); movePal(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); movePal(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); closePal(); reveal(phits[pcur]); }
+      return;
+    }
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === '/') { e.preventDefault(); openPal(); }
+    else if (e.key === 'Escape') select(null);
+    else if (e.key === 'f') doFit();
+    else if (e.key === 'g' && gapsBtn) gapsBtn.click();
+    else if (/^[0-3]$/.test(e.key) && depth) { depth.value = e.key; depth.dispatchEvent(new Event('input')); }
+    else if (e.key.indexOf('Arrow') === 0 && S.sel) { e.preventDefault(); walk(e.key); }
+    else if (spec.key) spec.key(e, H);
+  });
+
+  function walk(key) {
+    var want = { ArrowUp:-Math.PI / 2, ArrowRight:0, ArrowDown:Math.PI / 2, ArrowLeft:Math.PI }[key];
+    var best = null, bs = Infinity;
+    adj[S.sel.id].forEach(function (l) {
+      if (!visible[l.node.id]) return;
+      var a = Math.atan2(l.node.y - S.sel.y, l.node.x - S.sel.x);
+      var d = Math.abs(Math.atan2(Math.sin(a - want), Math.cos(a - want)));
+      if (d < bs) { bs = d; best = l.node; }
+    });
+    if (best && bs < 1.3) select(best);
+  }
+
+  /* ── cue ───────────────────────────────────────────────────────────── */
+  var cue = document.getElementById('cue'), cued = false;
+  function retireCue() {
+    if (cued || !cue) return;
+    cued = true;
+    cue.classList.add('gone');
+    setTimeout(function () { if (cue.parentNode) cue.remove(); }, 700);
+  }
+  setTimeout(retireCue, 11000);
+
+  /* ── go ────────────────────────────────────────────────────────────── */
+  var nN = document.getElementById('n-nodes'), nE = document.getElementById('n-edges'),
+      nG = document.getElementById('n-gaps');
+  if (nN) nN.textContent = nodes.length;
+  if (nE) nE.textContent = edges.length;
+  if (nG) nG.textContent = nodes.filter(function (n) { return n.state === 'gap'; }).length;
+
+  relayout();
+  nodes.forEach(function (n) { if (!n.pinned) { n.x = n.tx; n.y = n.ty; } });
+  if (spec.init) spec.init(H); else fit();
+  loop();
+
+  window.ESTATE = H;
+  return H;
+};
+</script>
+<script>/* ══ VARIATION · STRATA ════════════════════════════════════════════════════
+   The estate sorted by how hard it is to change. Four bands, hardest at the
+   top: Principles · Standard Operating Procedure · Suggestions · Conventions,
+   with everything that is an actor rather than a rule laid below the line.
+
+   The other five readings answer "what is this, and what does it touch?"
+   This one answers the question an auditor actually asks: "if we disagree
+   with this, can we override it — and who says so?"
+
+   Vertical position is authority. An edge that climbs the page is a thing
+   deferring to something it cannot argue with; an edge that descends is
+   authority being applied. Same 112 nodes, ranked instead of arranged.
+
+   Colour here is the Engineering Ledger direction from moodboard.html —
+   ledger paper, oxide, slate, marginalia — because a hierarchy of authority
+   is a document, not a diagram.
+─────────────────────────────────────────────────────────────────────────── */
+
+(function () {
+  var PAPER = window.__THEME.css.ledgerPaper, RULE = window.__THEME.css.ledgerRule, MARG = window.__THEME.css.ledgerMarg;
+  // narrow enough that a band's heading and its marginalia both clear the HUD
+  var PER_ROW = 5, XGAP = 150, YGAP = 64, HEAD = 100, PAD = 26, LABEL_LINE = 10.5;
+  var ORDER = ['kpi', 'principle', 'entity', 'fn', 'cause'];
+
+  var band = {};        // rank → { y0, y1, rows, count }
+  var placed = {};      // id  → rank, for the render pass
+
+  function wrapLabel(ctx, label, maxWidth) {
+    var words = label.toUpperCase().split(/\s+/), lines = [], line = '';
+    words.forEach(function (word) {
+      var candidate = line ? line + ' ' + word : word;
+      if (line && ctx.measureText(candidate).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function rankSort(a, b) {
+    var d = ORDER.indexOf(a.type) - ORDER.indexOf(b.type);
+    if (d) return d;
+    if (a.ring !== b.ring) return a.ring - b.ring;
+    return a.clock - b.clock;
+  }
+
+  var REL_TEXT = ['segments', 'moves', 'breaks at', 'caused by'];
+  var linkCount = {}, reachSet = {}, reach = {}, pathCount = {}, GUT = 0;
+
+  /* "Where to start": root causes ranked by the KPIs they reach */
+  function buildStart(H) {
+    var box = document.getElementById('start');
+    if (!box) return;
+    var causes = H.nodes.filter(function (n) { return n.type === 'cause'; }).sort(function (a, b) {
+      return (reach[b.id] - reach[a.id]) || ((pathCount[b.id] || 0) - (pathCount[a.id] || 0)) || a.label.localeCompare(b.label);
+    });
+    var list = box.querySelector('.chips');
+    causes.forEach(function (n) {
+      var b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button';
+      b.setAttribute('data-id', n.id);
+      var dot = document.createElement('i'); dot.className = 'cd';
+      dot.style.setProperty('--c', n.color);
+      var nm = document.createElement('span'); nm.textContent = n.label;
+      var ct = document.createElement('em'); ct.textContent = reach[n.id] + (reach[n.id] === 1 ? ' tower' : ' towers');
+      b.appendChild(dot); b.appendChild(nm); b.appendChild(ct);
+      b.addEventListener('mouseenter', function () { H.hover(n); });
+      b.addEventListener('mouseleave', function () { H.hover(null); });
+      b.addEventListener('focus', function () { H.hover(n); });
+      b.addEventListener('blur', function () { H.hover(null); });
+      b.addEventListener('click', function () { H.select(n); });
+      list.appendChild(b);
+    });
+    window.__startFit = null;
+    var sel = null;
+    window.__startMark = function (n) {
+      Array.prototype.forEach.call(list.children, function (c) { c.classList.toggle('on', !!n && c.getAttribute('data-id') === n.id); });
+    };
+  }
+
+  /* ── KPI picker: which KPIs (and so which paths and downstream nodes) are on screen ── */
+  var KPI_IDS = window.GRAPH.nodes.filter(function (n) { return n[2] === 'kpi'; }).map(function (n) { return n[0]; });
+  var kpiOn = {}, allowed = {}, edgeOn = {};
+  var DEFAULT_KPIS = ['t_p2p', 't_sc'];   // P2P and SC share the KSM-17 root cause
+  KPI_IDS.forEach(function (id) { kpiOn[id] = DEFAULT_KPIS.indexOf(id) >= 0; });
+  function livePathList() { return window.GRAPH.paths.filter(function (p) { return kpiOn[p[0]]; }); }
+  function recalcAllowed() {
+    allowed = {}; edgeOn = {};
+    livePathList().forEach(function (p) {
+      p.forEach(function (id, i) { allowed[id] = 1; if (i) edgeOn[p[i - 1] + '>' + id] = 1; });
+    });
+  }
+  recalcAllowed();
+
+  function buildKpiMenu(H) {
+    var wrap = document.getElementById('kpi-menu');
+    if (!wrap) return;
+    var btn = wrap.querySelector('.km-btn'), pop = wrap.querySelector('.km-pop'), list = wrap.querySelector('.km-list');
+    var all = wrap.querySelector('[data-act="all"]'), none = wrap.querySelector('[data-act="none"]');
+    var boxes = {};
+    function count() { return KPI_IDS.filter(function (id) { return kpiOn[id]; }).length; }
+    function refresh() {
+      btn.querySelector('.km-n').textContent = count() + ' / ' + KPI_IDS.length;
+      KPI_IDS.forEach(function (id) { boxes[id].checked = !!kpiOn[id]; });
+      recalcAllowed();
+      var chips = document.querySelectorAll('#start .chip');
+      Array.prototype.forEach.call(chips, function (c) { c.style.display = allowed[c.getAttribute('data-id')] ? '' : 'none'; });
+      if (H.S.sel && !allowed[H.S.sel.id]) H.select(null);
+      H.hover(null);
+      H.relayout();
+    }
+    KPI_IDS.forEach(function (id) {
+      var n = H.byId[id];
+      var row = document.createElement('label'); row.className = 'km-row';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; boxes[id] = cb;
+      cb.addEventListener('change', function () { kpiOn[id] = cb.checked; refresh(); });
+      var nm = document.createElement('span'); nm.className = 'km-nm'; nm.textContent = n.label;
+      var dot = document.createElement('i'); dot.style.background = n.color;
+      row.appendChild(cb); row.appendChild(dot); row.appendChild(nm);
+      list.appendChild(row);
+    });
+    all.addEventListener('click', function () { KPI_IDS.forEach(function (id) { kpiOn[id] = true; }); refresh(); });
+    none.addEventListener('click', function () { KPI_IDS.forEach(function (id) { kpiOn[id] = false; }); refresh(); });
+    function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); });
+    pop.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pop.hidden) { close(); e.stopPropagation(); } }, true);
+    refresh();
+  }
+
+  window.Explore({
+    id:'strata-rca',
+    fitPad:300,
+    drag:false,
+    pan:false,
+    zoom:false,
+    spring:false,
+    filter:function (n) { return !!allowed[n.id]; },
+    paths:livePathList,
+    onSelect:function (n) {
+      var st = document.getElementById('start');
+      if (st) st.classList.toggle('shift', !!n);
+      if (window.__startMark) window.__startMark(n);
+    },
+    panToSelection:false,
+    relayoutOnSelection:false,
+    hint:'Top band is where we look.<br>Bottom band is why it happens; open a root cause to decide.',
+
+    frame:function (H) {
+      /* screen space == world space: no zoom, no pan, nothing leaves the window */
+      H.S.cam.k = 1; H.S.cam.x = 0; H.S.cam.y = H.H / 2;
+    },
+
+    init:function (H) {
+      var P = window.GRAPH.paths || [];
+      /* paths per link, KPIs reached per cause, paths per cause */
+      P.forEach(function (p) {
+        for (var i = 1; i < p.length; i++) { var k = p[i - 1] + '>' + p[i]; linkCount[k] = (linkCount[k] || 0) + 1; }
+        var c = p[p.length - 1];
+        (reachSet[c] = reachSet[c] || {})[p[0]] = 1;
+        pathCount[c] = (pathCount[c] || 0) + 1;
+      });
+      H.nodes.forEach(function (n) {
+        if (n.type !== 'cause') return;
+        reach[n.id] = Object.keys(reachSet[n.id] || {}).length;
+        n.r = 7 + Math.max(0, reach[n.id] - 1) * 2.4;          // bigger red node = larger impact if fixed
+      });
+      buildStart(H);
+      buildKpiMenu(H);
+      H.relayout();            // chip rows now have a height; bands start below them
+      H.doFit();
+    },
+
+    place:function (H) {
+      var tiers = H.tiers.slice().sort(function (a, b) { return (a.n || 99) - (b.n || 99); });
+      placed = {}; band = {};
+      var sb = document.getElementById('start');
+      var top = 108, bottom = 14, side = 24;
+      if (sb && getComputedStyle(sb).display !== 'none') top = Math.max(108, Math.ceil(sb.getBoundingClientRect().bottom) + 8);
+      var TW = Math.max(150, Math.min(214, H.W * 0.17));     // title gutter width
+      var sc = TW / 214;                                      // title font scale
+      var bandH = Math.max(100, (H.H - top - bottom) / tiers.length);
+      var y = top;
+      tiers.forEach(function (t) {
+        var mine = H.nodes.filter(function (n) { return n.rank === t.n && H.visible[n.id]; }).sort(rankSort);
+        var availW = H.W - TW - side;
+        var step = Math.min(availW / Math.max(1, mine.length), 150);   // few nodes stay close together
+        var x0 = -H.W / 2 + TW + (availW - step * mine.length) / 2;
+        band[t.n] = { y0:y, y1:y + bandH, count:mine.length, tier:t, step:step, sc:sc, TW:TW };
+        mine.forEach(function (n, i) {
+          placed[n.id] = t.n;
+          n.pinned = false;
+          n.tx = x0 + (i + 0.5) * step;
+          n.ty = y + 34;
+        });
+        y += bandH;
+      });
+    },
+
+    render:function (ctx, H) {
+      var S = H.S;
+      var left = 10, right = H.W - 10;
+      var narrow = H.W < 760;                       // under 760px only the structure is drawn
+
+      /* slide on select: same scale, tree moves left so the selected paths clear the side panel */
+      var target = 0;
+      if (S.sel && window.innerWidth > 900) {
+        var panelW = Math.min(560, window.innerWidth * 0.46), limit = H.W - panelW - 18;
+        var xmax = -1e9, xmin = 1e9;
+        H.paths().forEach(function (pp) {
+          if (pp.indexOf(S.sel.id) < 0) return;
+          pp.forEach(function (id) {
+            var m = H.byId[id]; if (!m) return;
+            var bx = m.x + H.W / 2, hs = (band[m.rank] ? band[m.rank].step : 100) / 2;
+            xmax = Math.max(xmax, bx + hs); xmin = Math.min(xmin, bx - hs);
+          });
+        });
+        var room = Math.max(0, xmin - (GUT + 8));
+        target = Math.max(0, Math.min(xmax - limit, room));
+      }
+      var dx = target - S.cam.x;
+      S.cam.x = Math.abs(dx) < 0.4 ? target : S.cam.x + dx * 0.2;
+
+      /* ── the bands ─────────────────────────────────────────────────── */
+      Object.keys(band).forEach(function (k) {
+        var b = band[k], t = b.tier;
+        var y0 = H.sy(b.y0), y1 = H.sy(b.y1);
+        var dim = S.onR[t.n] === false;
+
+        ctx.fillStyle = H.hexA(t.color, dim ? 0.015 : 0.045);
+        ctx.fillRect(left, y0, right - left, y1 - y0);
+
+        // the top rule carries the weight: solid and thick for a principle,
+        // hairline and broken by the time you reach a convention
+        ctx.beginPath();
+        ctx.moveTo(left, y0); ctx.lineTo(right, y0);
+        if (t.n === 0) ctx.setLineDash([2, 6]);
+        else if (t.n === 5) ctx.setLineDash([9, 4]);
+        ctx.strokeStyle = H.hexA(t.color, dim ? 0.22 : 0.72);
+        ctx.lineWidth = t.n === 1 ? 2.4 : t.n === 2 ? 1.6 : 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        var a = dim ? 0.3 : 1;
+
+        // Keep the rank inside the band so the composition stays centered.
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        H.sans(30 * b.sc, 700);
+        ctx.fillStyle = H.hexA(t.color, a * (t.n === 0 ? 0.3 : 0.9));
+        ctx.fillText(t.n ? String(t.n) : '—', left + 14, y0 + 16);
+
+        H.sans(16 * b.sc, 700);
+        ctx.fillStyle = H.hexA(t.n === 0 ? MARG : PAPER, a * 0.92);
+        ctx.fillText(t.label, left + 14 + 34 * b.sc, y0 + 16);
+
+        H.tracked(9 * b.sc, 1.9 * b.sc);
+        ctx.fillStyle = H.hexA(t.color, a * 0.85);
+        ctx.fillText(t.edit.toUpperCase(), left + 14 + 34 * b.sc, y0 + 16 + 26 * b.sc);
+        H.clearTrack();
+
+      });
+
+      /* the relation between layers, once, in the left column */
+      Object.keys(band).forEach(function (k) {
+        var b = band[k], n = +k;
+        GUT = b.TW - 2;
+        if (n < 1 || n > 4 || narrow) return;
+        H.tracked(9 * b.sc, 1.2 * b.sc);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+        ctx.fillStyle = H.hexA(MARG, S.onR[n] === false ? 0.3 : 1);
+        ctx.fillText('↓ ' + REL_TEXT[n - 1], left + 14, H.sy(b.y1) - 10);
+        H.clearTrack();
+      });
+
+      /* tree content slides behind the left column, never over the layer names */
+      ctx.save();
+      ctx.beginPath(); ctx.rect(GUT, 0, H.W - GUT, H.H); ctx.clip();
+
+      /* ── label layout (needed first so edges can start below the text) ── */
+      H.nodes.forEach(function (n) {
+        var bd = band[n.rank];
+        if (!bd || placed[n.id] === undefined) { n._lb = null; return; }
+        var r = Math.max(3.6, n.r * 0.7);
+        var fs = Math.max(6, Math.min(8.5, bd.step / 12.5));
+        H.tracked(fs, 0.7);
+        var lines = narrow ? [] : wrapLabel(ctx, n.label, bd.step - 8);
+        H.clearTrack();
+        var extra = null;
+        if (!narrow) {
+          if ((n.type === 'kpi' || n.type === 'entity') && n.sub) extra = { text:n.sub, color:PAPER, weight:700 };
+          else if (n.type === 'cause' && reach[n.id]) extra = { text:('Reaches ' + reach[n.id] + (reach[n.id] === 1 ? ' tower' : ' towers')).toUpperCase(), color:n.color, weight:700 };
+        }
+        n._ll = { lines:lines, fs:fs, lh:fs * 1.3, r:r, extra:extra };
+        n._lb = H.sy(n.y) + r + 8 + (lines.length + (extra ? 1 : 0)) * fs * 1.3;       // bottom of the label
+        if (narrow) n._lb = H.sy(n.y) + r + 4;
+      });
+      var chTop = {};
+      H.nodes.forEach(function (n) {
+        if (n._lb == null) return;
+        chTop[n.rank] = Math.max(chTop[n.rank] || 0, n._lb + 6);
+      });
+
+      /* ── edges: drop from the label, run along the gap, drop into the node ── */
+      var act = S.hover || S.sel;
+      var pairs = {};
+      var list = [];
+      var tags = [];
+      H.edges.forEach(function (e) {
+        if (!H.visible[e.a.id] || !H.visible[e.b.id]) return;
+        var ra = placed[e.a.id], rb = placed[e.b.id];
+        if (ra === undefined || rb === undefined) return;
+        if (!edgeOn[e.a.id + '>' + e.b.id]) return;          // only links on a selected KPI's paths
+        var up = e.a.y <= e.b.y ? e.a : e.b, dn = up === e.a ? e.b : e.a;
+        var item = { e:e, up:up, dn:dn, ra:ra, rb:rb };
+        list.push(item);
+        (pairs[up.rank] = pairs[up.rank] || []).push(item);
+      });
+      Object.keys(pairs).forEach(function (k) {
+        var g = pairs[k];
+        g.sort(function (p, q) { return (p.up.x - q.up.x) || (p.dn.x - q.dn.x); });
+        var L = Math.min(g.length, 6);
+        g.forEach(function (it, i) { it.lane = i % L; it.lanes = L; });
+      });
+      // draw faint edges first, lit edges last so they sit on top
+      list.sort(function (p, q) {
+        var tp = act && H.focusEdge && H.focusEdge[p.e.a.id + '>' + p.e.b.id] ? 1 : 0;
+        var tq = act && H.focusEdge && H.focusEdge[q.e.a.id + '>' + q.e.b.id] ? 1 : 0;
+        return tp - tq;
+      });
+      list.forEach(function (it) {
+        var e = it.e, ra = it.ra, rb = it.rb;
+        var touches = act && H.focusEdge && H.focusEdge[e.a.id + '>' + e.b.id];
+        var crosses = ra !== rb && ra !== 0 && rb !== 0;
+        var al = !H.focus ? 0.5 : (touches ? 0.95 : 0.03);
+        if (al < 0.02) return;
+        var hard = H.tierOf[Math.min(ra || 9, rb || 9)];
+        var col = touches ? e.a.color : (crosses && hard ? hard.color : RULE);
+
+        var up = it.up, dn = it.dn;
+        var xu = H.sx(up.x), xd = H.sx(dn.x);
+        var ys = (up._lb != null ? up._lb : H.sy(up.y) + 12) + 2;
+        var rd = (dn._ll ? dn._ll.r : 5) + 3.4;
+        var ye = H.sy(dn.y) - rd - 2;
+        var bd = band[dn.rank];
+        var yc = Math.min(chTop[up.rank] || ys, ye - 8);        // clear of every label in the upper band
+        var f = it.lanes > 1 ? 0.3 + 0.4 * (it.lane / (it.lanes - 1)) : 0.5;
+        var cy = yc + (ye - yc) * f;
+
+        ctx.beginPath();
+        ctx.moveTo(xu, ys);
+        if (Math.abs(xd - xu) < 1.5) {
+          ctx.lineTo(xd, ye);
+        } else {
+          ctx.lineTo(xu, yc);
+          ctx.bezierCurveTo(xu, cy, xd, cy, xd, ye);
+        }
+        var cnt = linkCount[e.a.id + '>' + e.b.id] || 1;
+        ctx.strokeStyle = H.hexA(col, al);
+        ctx.lineWidth = Math.max(1.1, 0.6 * cnt + 0.5) + (touches ? 0.6 : 0);   // about 0.6px per RCA path
+        ctx.stroke();
+        if (touches && act && !narrow && Math.abs(xd - xu) >= 1.5) {
+          var N = 0;
+          H.paths().forEach(function (pp) {
+            var i = pp.indexOf(e.a.id);
+            if (pp.indexOf(act.id) >= 0 && i >= 0 && pp[i + 1] === e.b.id) N++;
+          });
+          if (N > 1) tags.push({ x:(xu + xd) / 2, y:0.125 * (yc + ye) + 0.75 * cy, n:N, col:col });
+        }
+        if (touches && act && !narrow && Math.abs(xd - xu) < 1.5) {
+          var N2 = 0;
+          H.paths().forEach(function (pp) {
+            var i2 = pp.indexOf(e.a.id);
+            if (pp.indexOf(act.id) >= 0 && i2 >= 0 && pp[i2 + 1] === e.b.id) N2++;
+          });
+          if (N2 > 1) tags.push({ x:xu, y:(yc + ye) / 2, n:N2, col:col });
+        }
+      });
+
+      /* ×N: how many of the active node's paths use this link (hidden when 1) */
+      tags.forEach(function (t) {
+        var txt = '×' + t.n;
+        H.sans(10, 700);
+        var w = ctx.measureText(txt).width + 10;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(t.x - w / 2, t.y - 8, w, 16);
+        ctx.strokeStyle = t.col; ctx.lineWidth = 1;
+        ctx.strokeRect(t.x - w / 2 + 0.5, t.y - 8 + 0.5, w - 1, 15);
+        ctx.fillStyle = PAPER; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(txt, t.x, t.y + 0.5);
+      });
+
+      /* ── nodes: type in the core, stratum in the ring ──────────────── */
+      H.nodes.forEach(function (n) {
+        var al = H.alphaOf(n);
+        if (al <= 0 || placed[n.id] === undefined) return;
+        var t = H.tierOf[n.rank];
+        var x = H.sx(n.x), y = H.sy(n.y);
+        var r = Math.max(3.6, n.r * 0.7) * Math.max(0.72, Math.min(1.5, S.cam.k));
+        var active = (n === S.hover || n === S.sel);
+        var lit = active || (H.focus && H.focus[n.id]);
+
+        if (active) {
+          ctx.beginPath(); ctx.arc(x, y, r + 9, 0, Math.PI * 2);
+          ctx.strokeStyle = H.hexA(t ? t.color : n.color, 0.5);
+          ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        // the stratum ring — solid for a principle, dashed by the time it is habit
+        if (t) {
+          ctx.beginPath(); ctx.arc(x, y, r + 3.4, 0, Math.PI * 2);
+          if (n.state === 'ctx' || n.state === 'gap') ctx.setLineDash([5, 3]);
+          ctx.strokeStyle = H.hexA(t.color, al * (n.rank === 1 ? 0.95 : n.rank === 0 ? 0.3 : 0.55));
+          ctx.lineWidth = n.rank === 1 ? 1.9 : 1.1;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        if (n.type === 'cause') {
+          if (lit) { ctx.shadowColor = H.hexA(n.color, 0.8); ctx.shadowBlur = 11; }
+          ctx.fillStyle = H.hexA(n.color, al); ctx.fill(); ctx.shadowBlur = 0;
+        } else if (n.state === 'ctx') {
+          ctx.strokeStyle = H.hexA(n.color, al * 0.9); ctx.lineWidth = 1.3; ctx.stroke();
+        } else {
+          if (lit) { ctx.shadowColor = H.hexA(n.color, 0.8); ctx.shadowBlur = 11; }
+          ctx.fillStyle = H.hexA(n.color, al); ctx.fill(); ctx.shadowBlur = 0;
+        }
+
+        var LL = n._ll;
+        H.tracked(LL.fs, 0.7);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillStyle = H.hexA(PAPER, active ? 1 : Math.min(al, 0.78));
+        LL.lines.forEach(function (line, i) {
+          ctx.fillText(line, x, y + r + 8 + i * LL.lh);
+        });
+        if (LL.extra) {
+          H.tracked(LL.fs, LL.extra.weight === 700 && n.type === 'cause' ? 0.7 : 0.2, LL.extra.weight);
+          ctx.fillStyle = H.hexA(LL.extra.color, active ? 1 : Math.min(al, 0.95));
+          ctx.fillText(LL.extra.text, x, y + r + 8 + LL.lines.length * LL.lh + 1);
+        }
+        H.clearTrack();
+      });
+      ctx.restore();
+    },
+  });
+})();
+</script>
+
+
+
+
+</body>
+</html>

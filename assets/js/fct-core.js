@@ -96,7 +96,7 @@
   /* ---------- navigation model ---------- */
   FCT.NAV = [
     { id:'HOME', label:'Controller home', q:'Across all five towers', items:[
-      ['home/desk','Executive view'] ]},
+      ['home/desk','Executive view'],/* ['home/kpi-tree','KPI tree'], hidden from navigation, page kept */['home/kpi-stack','KPI stack'] ]},
     { id:'P2P', label:'Procure to pay', q:'Are we paying right, and are liabilities complete?', items:[
       ['p2p/vendors','Vendor profiles'],['p2p/desk','P2P scorecard'],['p2p/process','Process chain'] ]},
     { id:'O2C', label:'Order to cash', q:'Is revenue right and is cash coming in?', items:[

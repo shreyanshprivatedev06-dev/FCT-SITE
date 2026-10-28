@@ -78,7 +78,7 @@
   const SevDots = ({ list })=> html`<span class="xh-sev">${SEV.map(([k,l])=>{ const c = list.filter(x=> x.severity===k).length; return c? html`<span key=${k}><i style=${{ background:SEVC[k] }}/>${c} ${l.toLowerCase()}</span>` : ''; })}</span>`;
 
   /* ---------- the command bar: the app's own, with the executive ribbon ---------- */
-  P.TOWER = { code:'FCT', name:'Executive view', base:'screens/home/', tabs:[['desk','Executive view','Gauge']] };
+  P.TOWER = { code:'FCT', name:'Executive view', base:'screens/home/', tabs:[['desk','Executive view','Gauge'],/* ['kpi-tree','KPI tree','Link2'], hidden from navigation, page kept */['kpi-stack','KPI stack','Layers']] };
   const Ribbon = ({ F, setF })=>{ const sel = (k, opts, lab)=> html`<${P.Dropdown} label=${lab} value=${F[k]} options=${opts} active=${F[k]!==F0[k]} onChange=${(v)=> setF(Object.assign({}, F, { [k]:v }))}/>`;
     return html`<div class="px-filters compact" role="search" aria-label="Executive filters">
       ${sel('period', PERIODS.map(p=> [p,p]), 'Period')}
@@ -419,6 +419,7 @@
   function App(){
     const [F, setF0] = useState(loadF), setF = (n2)=>{ setF0(n2); try{ sessionStorage.setItem('fct-exec-f', JSON.stringify(n2)); }catch(e){} };
     const [win, setWin] = useState(null), [, tick] = useState(0);
+    useEffect(()=>{ const id = new URLSearchParams(location.search).get('x'); if(id && FCT.ex(id)) setWin({ t:'ex', id }); }, []);   /* ?x=ID opens that decision, e.g. from the KPI tree */
     useEffect(()=>{ const t = setInterval(()=> tick(k=> k+1), 2500); return ()=> clearInterval(t); }, []);   /* decisions taken in the drawer show up without a reload */
     const H = useMemo(()=>{ const o = {}; TW.forEach(t=> o[t.id] = health(t, F)); return o; }, [F.period, F.entity, F.region]);
     const ex = exOf(F), tws = F.tower==='All'? TW : TW;
