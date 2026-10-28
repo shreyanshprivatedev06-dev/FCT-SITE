@@ -78,7 +78,7 @@
   const SevDots = ({ list })=> html`<span class="xh-sev">${SEV.map(([k,l])=>{ const c = list.filter(x=> x.severity===k).length; return c? html`<span key=${k}><i style=${{ background:SEVC[k] }}/>${c} ${l.toLowerCase()}</span>` : ''; })}</span>`;
 
   /* ---------- the command bar: the app's own, with the executive ribbon ---------- */
-  P.TOWER = { code:'FCT', name:'Executive view', base:'screens/home/', tabs:[['desk','Executive view','Gauge'],/* ['kpi-tree','KPI tree','Link2'], hidden from navigation, page kept */['kpi-stack','KPI stack','Layers']] };
+  P.TOWER = { code:'FCT', name:'Executive view', base:'screens/home/', tabs:[['desk','Executive view','Gauge'],/* ['kpi-tree','KPI tree','Link2'], hidden from navigation, page kept */['kpi','KPI stack & tree','Layers']] };
   const Ribbon = ({ F, setF })=>{ const sel = (k, opts, lab)=> html`<${P.Dropdown} label=${lab} value=${F[k]} options=${opts} active=${F[k]!==F0[k]} onChange=${(v)=> setF(Object.assign({}, F, { [k]:v }))}/>`;
     return html`<div class="px-filters compact" role="search" aria-label="Executive filters">
       ${sel('period', PERIODS.map(p=> [p,p]), 'Period')}

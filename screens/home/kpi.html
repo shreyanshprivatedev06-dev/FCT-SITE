@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KPI stack & tree | FCT</title>
+<meta name="description" content="The KPI stack and the KPI tree on one page: the same towers, segments, KPIs, process stages, root causes and decisions, in two designs.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* FCT workspace tokens (assets/css/p2p.css): one page, two views of the same graph */
+:root{ --bg:#0B1413; --panel:#131E1D; --line:#24322F; --line2:#34443F; --ink:#E4EBE9; --ink2:#A9B8B4; --ink3:#7F918C; --brass:#E0B25A; --hover:#1C2A29;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif }
+html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); font:400 13.5px/1.4 var(--sans); overflow:hidden }
+.track{ position:fixed; inset:0; display:flex; width:200vw; transition:transform .45s cubic-bezier(.4,0,.2,1) }
+.track.tree{ transform:translateX(-100vw) }
+@media (prefers-reduced-motion:reduce){ .track{ transition:none } }
+.track iframe{ flex:none; width:100vw; height:100vh; border:0; display:block; background:var(--bg) }
+/* the shared bar: back to the Executive view, and the slider between the two views */
+.bar{ position:fixed; z-index:10; top:14px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; padding:4px;
+  background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px -18px rgba(0,0,0,.6) }
+.back{ display:inline-flex; align-items:center; height:32px; padding:0 12px; border-radius:7px; color:var(--ink2); text-decoration:none; font:500 12.5px/1 var(--sans); white-space:nowrap }
+.back:hover{ color:var(--ink); background:var(--hover) }
+.slider{ position:relative; display:grid; grid-template-columns:1fr 1fr; padding:3px; border:1px solid var(--line2); border-radius:8px; background:#0E1716 }
+.slider button{ position:relative; z-index:1; height:28px; min-width:96px; padding:0 14px; border:0; background:none; color:var(--ink2); font:600 12.5px/1 var(--sans); cursor:pointer; border-radius:6px }
+.slider button:hover{ color:var(--ink) }
+.slider button[aria-selected="true"]{ color:var(--brass) }
+.slider button:focus-visible{ outline:1px solid var(--brass); outline-offset:1px }
+.slider .thumb{ position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); border-radius:6px; background:rgba(224,178,90,.14);
+  box-shadow:inset 0 0 0 1px rgba(224,178,90,.45); transition:transform .3s cubic-bezier(.4,0,.2,1) }
+.slider.tree .thumb{ transform:translateX(100%) }
+.hint{ padding:0 8px 0 4px; color:var(--ink3); font:500 11.5px/1 var(--sans); white-space:nowrap }
+@media (max-width:760px){ .hint,.back span{ display:none } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="back" href="desk.html">&larr;<span>&nbsp;Executive view</span></a>
+  <div class="slider" role="tablist" aria-label="KPI view">
+    <span class="thumb" aria-hidden="true"></span>
+    <button type="button" role="tab" id="tab-stack" aria-controls="v-stack" aria-selected="true">KPI stack</button>
+    <button type="button" role="tab" id="tab-tree" aria-controls="v-tree" aria-selected="false">KPI tree</button>
+  </div>
+  <span class="hint">Same data, two views</span>
+</div>
+<div class="track" id="track">
+  <iframe id="v-stack" title="KPI stack" src="kpi-stack.html?embed=1"></iframe>
+  <iframe id="v-tree" title="KPI tree" src="kpi-tree.html?embed=1" tabindex="-1" aria-hidden="true"></iframe>
+</div>
+<script>
+(function () {
+  var track = document.getElementById('track'), slider = document.querySelector('.slider');
+  var tabs = { stack:document.getElementById('tab-stack'), tree:document.getElementById('tab-tree') };
+  var frames = { stack:document.getElementById('v-stack'), tree:document.getElementById('v-tree') };
+  function show(v, push) {
+    var tree = v === 'tree';
+    track.classList.toggle('tree', tree); slider.classList.toggle('tree', tree);
+    Object.keys(tabs).forEach(function (k) {
+      tabs[k].setAttribute('aria-selected', String(k === v));
+      frames[k].setAttribute('aria-hidden', String(k !== v)); frames[k].tabIndex = k === v ? 0 : -1;
+    });
+    if (push !== false) { try { history.replaceState(null, '', tree ? '#tree' : '#stack'); } catch (e) {} }
+  }
+  tabs.stack.addEventListener('click', function () { show('stack'); });
+  tabs.tree.addEventListener('click', function () { show('tree'); });
+  slider.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { show('tree'); tabs.tree.focus(); } else if (e.key === 'ArrowLeft') { show('stack'); tabs.stack.focus(); }
+  });
+  /* a horizontal swipe on the bar slides between the views */
+  var x0 = null;
+  slider.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+  window.addEventListener('pointerup', function (e) { if (x0 == null) return; var d = e.clientX - x0; x0 = null; if (d > 24) show('tree'); else if (d < -24) show('stack'); });
+  /* keep the tower choice the same in both views */
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || e.data.fct !== 'tower') return;
+    Object.keys(frames).forEach(function (k) { if (frames[k].contentWindow !== e.source) frames[k].contentWindow.postMessage(e.data, location.origin); });
+  });
+  show(location.hash === '#tree' ? 'tree' : 'stack', false);
+})();
+</script>
+</body>
+</html>

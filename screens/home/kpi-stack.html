@@ -1950,5 +1950,24 @@ window.Explore = function (spec) {
   });
 })();
 </script>
+<script>/* embedded in the KPI stack & tree page (kpi.html?…): its bar replaces this page's own navigation;
+   links open in the main window, and the tower choice stays in step with the other view */
+(function () {
+  if (!/[?&]embed=1/.test(location.search) || window.parent === window) return;
+  document.documentElement.classList.add('embed');
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[href]'); if (a) a.target = '_top'; }, true);
+  function hook() {
+    var t = document.getElementById('tower-select');
+    if (!t) return setTimeout(hook, 200);
+    t.addEventListener('change', function () { parent.postMessage({ fct:'tower', v:t.value }, location.origin); });
+    window.addEventListener('message', function (e) {
+      if (e.origin !== location.origin || !e.data || e.data.fct !== 'tower' || t.value === e.data.v) return;
+      t.value = e.data.v; t.dispatchEvent(new Event('change'));
+    });
+  }
+  hook();
+})();
+</script>
+<style>html.embed .switch,html.embed .xv-back,html.embed .page-title{ display:none!important }</style>
 </body>
 </html>
