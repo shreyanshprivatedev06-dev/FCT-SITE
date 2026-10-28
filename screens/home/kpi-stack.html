@@ -636,6 +636,18 @@ body{ background:#0B1413; font-family:var(--sans); font-size:13.5px; font-featur
 .pres,.pal-foot{ font-family:var(--sans)!important; letter-spacing:0!important }
 .start{ top:362px; max-height:calc(100vh - 540px) }
 .reader{ z-index:60 }
+/* layout: filters on the left, graph in the centre, legend and readout on the right */
+.lcol{ position:fixed; z-index:25; top:20px; left:20px; width:268px; display:flex; flex-direction:column; gap:12px }
+.lcol > .hud,.lcol > .fbar{ position:static!important; transform:none!important; width:auto!important; max-width:none!important; flex:none }
+.fbar{ display:flex!important; flex-direction:column; align-items:stretch!important; gap:6px!important; padding:12px 14px 14px!important; border-radius:12px!important }
+.fbar > label,.fbar .km-lab{ margin-top:6px } .fbar > label:first-child{ margin-top:0 }
+.fbar select,.fbar .km-btn{ width:100%; min-width:0!important; box-sizing:border-box }
+.kpi-menu{ flex-direction:column; align-items:stretch!important; gap:6px!important; margin-left:0!important }
+.km-btn{ justify-content:space-between }
+.km-pop{ top:62px!important }
+#start-select{ height:30px; padding:0 8px; border:1px solid var(--rule-2); border-radius:7px; background:var(--sunk); color:var(--text); font:600 12.5px/1 var(--sans); cursor:pointer }
+#start-select:hover,#start-select:focus{ border-color:var(--brass); outline:none }
+#stage{ left:300px!important; right:248px!important }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -682,12 +694,9 @@ body{ background:#0B1413; font-family:var(--sans); font-size:13.5px; font-featur
       <div class="km-list"></div>
     </div>
   </div>
+  <label for="start-select">Where to start</label>
+  <select id="start-select" aria-label="Where to start: root causes ranked by the KPIs they reach"><option value="">Choose a root cause…</option></select>
 </div>
-
-<aside class="hud start" id="start" aria-label="Where to start">
-  <span class="ml">Where to start — root causes by KPIs reached</span>
-  <div class="chips"></div>
-</aside>
 
 <aside class="hud legend">
   <span class="ml">Legend — click to filter</span>
@@ -719,6 +728,7 @@ body{ background:#0B1413; font-family:var(--sans); font-size:13.5px; font-featur
   <button class="act" id="searchBtn">Find <kbd>⌘K</kbd></button>
 </div>
 
+<script>(function(){ var c = document.createElement("div"); c.className = "lcol"; document.body.insertBefore(c, document.getElementById("stage").nextSibling); [".hud.title", ".fbar", ".hud.ladder"].forEach(function (q) { var e = document.querySelector(q); if (e) c.appendChild(e); }); })();</script>
 <aside class="hud readout">
   <span class="ml">Readout</span>
   <div id="ro-body"></div>
@@ -1530,28 +1540,33 @@ window.Explore = function (spec) {
     });
   }
 
+  /* where to start: a dropdown of the chosen towers' root causes, ranked by the KPIs they reach (like the Layer filter) */
+  function startSelect(H, isAllowed) {
+    var sel = document.getElementById('start-select'); if (!sel) return function () {};
+    var byId = {}, reach = {};
+    H.nodes.forEach(function (n) { byId[n.id] = n; });
+    window.GRAPH.paths.forEach(function (p) { (reach[p[4]] = reach[p[4]] || {})[p[2]] = 1; });
+    var k = function (n) { return Object.keys(reach[n.id] || {}).length; };
+    var causes = H.nodes.filter(function (n) { return n.type === 'cause'; })
+      .sort(function (a, b) { return k(b) - k(a) || a.label.localeCompare(b.label); });
+    sel.addEventListener('change', function () { var n = byId[sel.value]; if (n) H.select(n); });
+    return function refresh() {
+      var keep = sel.value; sel.length = 1;
+      causes.forEach(function (n) {
+        if (!isAllowed(n.id)) return;
+        var o = document.createElement('option'); o.value = n.id;
+        o.textContent = n.label + '  ·  ' + n.sheet + ' · ' + k(n) + (k(n) === 1 ? ' KPI' : ' KPIs') + (n.state === 'in' ? '' : n.state === 'ctx' ? ' · owner confirms' : ' · not established');
+        sel.appendChild(o);
+      });
+      sel.value = isAllowed(keep) ? keep : '';
+    };
+  }
+
   window.__buildFilters = function (H) {
     var byId = {}; H.nodes.forEach(function (n) { byId[n.id] = n; });
     H.S.gaps = true;   /* causes not yet established are always shown */
 
-    /* where to start: root causes of the chosen towers, ranked by the KPIs they reach */
-    var reach = {};
-    G.paths.forEach(function (p) { (reach[p[4]] = reach[p[4]] || {})[p[2]] = 1; });
-    var box = document.querySelector('#start .chips');
-    H.nodes.filter(function (n) { return n.type === 'cause'; })
-      .sort(function (a, b) { return Object.keys(reach[b.id] || {}).length - Object.keys(reach[a.id] || {}).length || a.label.localeCompare(b.label); })
-      .forEach(function (n) {
-        var k = Object.keys(reach[n.id] || {}).length;
-        var b = document.createElement('button');
-        b.type = 'button'; b.className = 'chip'; b.dataset.id = n.id;
-        b.innerHTML = '<i class="cd' + (n.state !== 'in' ? ' hollow' : '') + '"></i><span></span><em></em>';
-        b.querySelector('span').textContent = n.label;
-        b.querySelector('em').textContent = n.sheet + ' · ' + k + (k === 1 ? ' KPI' : ' KPIs');
-        b.addEventListener('mouseenter', function () { H.hover(n); H.relayout(); });
-        b.addEventListener('mouseleave', function () { H.hover(null); H.relayout(); });
-        b.addEventListener('click', function () { H.select(n); });
-        box.appendChild(b);
-      });
+    var startRefresh = startSelect(H, function (id) { return !!allowed[id]; });
 
     /* KPI picker: the KPIs of the chosen towers */
     var wrap = document.getElementById('kpi-menu'), btn = wrap.querySelector('.km-btn'), pop = wrap.querySelector('.km-pop'), list = wrap.querySelector('.km-list'), boxes = {}, rows = {};
@@ -1570,7 +1585,7 @@ window.Explore = function (spec) {
       var ne = 0; H.edges.forEach(function (e) { if (allowed[e.a.id] && allowed[e.b.id]) ne++; });
       var a1 = document.getElementById("n-nodes"), a2 = document.getElementById("n-edges"), a3 = document.getElementById("n-gaps");
       if (a1) a1.textContent = nn; if (a2) a2.textContent = ne; if (a3) a3.textContent = conf;
-      document.querySelectorAll('#start .chip').forEach(function (c) { c.style.display = allowed[c.dataset.id] ? '' : 'none'; });
+      startRefresh();
       if (H.S.sel && !allowed[H.S.sel.id]) H.select(null);
       H.hover(null);
       H.relayout();

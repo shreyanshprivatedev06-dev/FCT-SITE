@@ -28,8 +28,7 @@ html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); font:4
 .slider .thumb{ position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); border-radius:6px; background:rgba(224,178,90,.14);
   box-shadow:inset 0 0 0 1px rgba(224,178,90,.45); transition:transform .3s cubic-bezier(.4,0,.2,1) }
 .slider.tree .thumb{ transform:translateX(100%) }
-.hint{ padding:0 8px 0 4px; color:var(--ink3); font:500 11.5px/1 var(--sans); white-space:nowrap }
-@media (max-width:760px){ .hint,.back span{ display:none } }
+@media (max-width:760px){ .back span{ display:none } }
 </style>
 </head>
 <body>
@@ -40,7 +39,6 @@ html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); font:4
     <button type="button" role="tab" id="tab-stack" aria-controls="v-stack" aria-selected="true">KPI stack</button>
     <button type="button" role="tab" id="tab-tree" aria-controls="v-tree" aria-selected="false">KPI tree</button>
   </div>
-  <span class="hint">Same data, two views</span>
 </div>
 <div class="track" id="track">
   <iframe id="v-stack" title="KPI stack" src="kpi-stack.html?embed=1"></iframe>
