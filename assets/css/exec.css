@@ -550,7 +550,7 @@ body{font-family:var(--sans);background:var(--canvas);color:var(--ink)}
 .main>.head{margin-top:18px}
 .main>.foot{margin-bottom:24px}
 @media(max-width:700px){
-  .side.open+.main{margin-left:0}
+  .side:not(.open)+.main,.side.open+.main{margin-left:0}
   .top{padding:10px 12px}
   .main>.crumb{padding:12px 12px 0}
   .main>.section-tabs,.main>.head,.main>.briefing,.main>section,.main>.foot{margin-left:12px;margin-right:12px}
