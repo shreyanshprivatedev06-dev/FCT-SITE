@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Close calendar | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../data/o2c/master.js"></script><script src="../../data/o2c/ledger.js"></script><script src="../../assets/js/o2c/o2c-model.js"></script>
+<script src="../../data/r2r/master.js"></script><script src="../../data/r2r/ledger.js"></script><script src="../../assets/js/r2r/r2r-model.js"></script>
+<script src="../../assets/js/fin/fin-data.js"></script>
+<link rel="stylesheet" href="../../assets/css/fin.css">
+</head>
+<body data-page="r2r/close-calendar" data-root="../../">
+<div id="app"><p style="padding:24px">Loading the close calendar…</p></div>
+<script>
+/* Close calendar: the Sep-26 close for one entity — committed against predicted close day, the open tasks with the ones behind plan
+   first, what blocks them, the escalation running on them, the agent lane, and sign-off status. Tasks, owners, due days, forecasts
+   and risk factors come from the R2R close ledger (R2RM); the escalation is the entity's close decision in the queue. */
+(function(){
+  const P = window.P2P, { html } = P, FCT = window.FCT, FIN = window.FIN;
+  const { useState, Fragment } = React;
+  P.TOWER = { code:'R2R', name:'Record to report', base:'screens/r2r/', tabs:[['entities','Entity profiles','Building2'],['desk','Scorecard','Gauge'],['process','Process chain','Layers'],['close-calendar','Close calendar','CalendarClock']] };
+  const ENTS = FIN.entities(), wd = FIN.wd;
+  /* plain names for the close ledger's task areas */
+  const GRP = { Recs:'Reconciliations', IC:'Intercompany', Certify:'Review and sign-off', Pack:'Management pack', 'Sub-ledger':'Sub-ledger close', Accruals:'Accruals', Revenue:'Revenue' };
+  const STATUS = { open:{ label:'On track', color:'var(--ink-2)' }, blocked:{ label:'Overdue', color:'var(--px-high)' } };
+  const initial = ()=>{ const q = new URLSearchParams(location.search).get('e'); if(q && ENTS.some((e)=> e.id===q)) return q; return ENTS.slice().sort((a,b)=> b.score-a.score)[0].id; };
+
+  const LC = { working:'var(--px-brand)', escalated:'var(--crit)', never:'var(--px-medium)', none:'var(--ink-3)' };
+  const LaneStatus = ({ l })=> html`<span class="cc-badge" style=${{ color:LC[l.state] }}><i aria-hidden="true"/>${l.status}</span>`;
+  const LaneReason = ({ l })=> html`<span style=${{ fontSize:12, color:l.state==='escalated'? 'var(--crit)' : 'var(--ink-2)' }}>${l.reason}</span>`;
+  function Esc({ e }){
+    if(!e) return html`<span class="faint">—</span>`;
+    return e.state==='sent'? html`<span class="fn-num" style=${{ fontSize:12, color:'var(--crit)' }}>Escalated to ${e.to} at ${e.when}</span>`
+      : html`<span class="fn-num" style=${{ fontSize:12, color:'var(--px-high)' }}>Goes to ${e.to}, ${e.when.toLowerCase()}</span>`;
+  }
+
+  function CloseCalendar(){
+    const [id, setId] = useState(initial), [open, setOpen] = useState(null);
+    const cal = FIN.close(id);
+    const slip = cal.predictedDay - cal.committedDay;
+    const slipText = slip>0? `Expected to close ${slip} day${slip===1? '' : 's'} late` : slip<0? `Expected to close ${-slip} day${slip===-1? '' : 's'} early` : 'Expected to close on time';
+    const blockedCount = cal.tasks.filter((t)=> t.status==='blocked').length, cpCount = cal.tasks.filter((t)=> t.onCriticalPath).length;
+    const sentCount = cal.tasks.filter((t)=> t.escalation && t.escalation.state==='sent').length, timerCount = cal.tasks.filter((t)=> t.escalation && t.escalation.state==='timer').length;
+    /* a controller scans for stuck work first: behind-plan rows before open ones, earliest due day within each group */
+    const rows = cal.tasks.slice().sort((a,b)=> Number(b.status==='blocked') - Number(a.status==='blocked') || a.dueWD - b.dueWD || a.id.localeCompare(b.id));
+    const pick = (v)=>{ setId(v); setOpen(null); try{ history.replaceState(null, '', '?e='+v); }catch(e){} };
+    const drivers = cal.risk.factors.filter((f)=> f.v>0).sort((a,b)=> b.contrib-a.contrib).slice(0,4);
+    const sgnColor = cal.signoff.late? 'var(--px-high)' : cal.signoff.inFlight? 'var(--px-medium)' : 'var(--pos)';
+
+    return html`<main class="px-page wide k-teal cc" aria-label="Close calendar">
+      <div class="cc-top">
+        <div class="px-page-h"><h1>Close calendar</h1><p>${'Every task in the September 2026 month-end close for '+cal.id+' '+cal.name+', and whether the books will be closed on time. Figures as at '+FCT.nowLabel(0)+' (working day '+cal.todayWD+' after month-end).'}</p></div>
+        <label class="cc-pick">Entity
+          <select value=${id} onChange=${(e)=> pick(e.target.value)}>${ENTS.map((e)=> html`<option key=${e.id} value=${e.id}>${e.id} ${e.name} · close risk: ${e.risk}</option>`)}</select></label>
+      </div>
+      <div class="px-stats row">
+        <${P.Stat} label="Tasks complete" value=${Math.round(cal.completeCount/cal.total*100)+'%'} sub=${cal.completeCount+' of '+cal.total+' close tasks finished'}/>
+        <${P.Stat} label="Target close day" value=${wd(cal.committedDay)} sub=${"Books should be closed by working day "+cal.committedDay+" after month-end"}/>
+        <${P.Stat} label="Forecast close day" tone=${slip>0? 'crit' : undefined} value=${html`<span style=${{ color:slip>0? 'var(--crit)' : undefined }}>${wd(cal.predictedDay)}</span>`} sub=${slipText}/>
+        <${P.Stat} label="Open tasks" value=${String(cal.openCount)} sub=${'Tasks not finished yet, out of '+cal.total}/>
+        <${P.Stat} label="Overdue tasks" value=${html`<span style=${{ color:cal.blockerCount? 'var(--crit)' : undefined }}>${cal.blockerCount}</span>`} sub=${'Should have been finished by today ('+wd(cal.todayWD)+') but are not'}/></div>
+
+      <section class="cc-card" aria-label="Attention slice">
+        <div class="cc-card-h"><span class="fn-ml">Unfinished tasks — overdue ones first</span>
+          <small>WD+1 = 1st working day after month-end · <i class="cc-cp" aria-hidden="true" style=${{ display:'inline-block', marginRight:6, verticalAlign:'middle' }}/>Orange dot = if this task slips, the whole close slips · ${cal.openCount} of ${cal.total} tasks still open · click any row to see who it goes to if it is not done</small></div>
+        ${rows.length? html`<table class="cc-t"><thead><tr><th>Task</th><th style=${{ width:150 }}>Owner</th><th class="r" style=${{ width:80 }}>Due by</th><th style=${{ width:130 }}>Status</th><th style=${{ width:190 }}>Escalation</th><th style=${{ width:120 }}>AI agent status</th><th style=${{ width:260 }}>AI agent reason</th></tr></thead>
+          <tbody>${rows.map((t)=>{ const s = STATUS[t.status], isOpen = open===t.id;
+            return html`<${Fragment} key=${t.id}>
+              <tr class=${'row'+(isOpen? ' open' : '')} tabIndex="0" aria-expanded=${isOpen} onClick=${()=> setOpen(isOpen? null : t.id)} onKeyDown=${(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setOpen(isOpen? null : t.id); } }}>
+                <td><div class="cc-tn"><span><i class=${'cc-cp'+(t.onCriticalPath? '' : ' off')} aria-hidden="true"/>${t.name}</span>
+                  ${t.blocker && html`<span class="sub">Held up: ${t.blocker.name}; ${t.blocker.owner}</span>`}
+                  <span class="grp">Area: ${GRP[t.grp] || t.grp} · Progress: ${t.st}</span></div></td>
+                <td>${t.owner}</td>
+                <td class="r fn-num">${wd(t.dueWD)}</td>
+                <td><span class="cc-badge" style=${{ color:s.color }}><i aria-hidden="true"/>${s.label}</span></td>
+                <td><${Esc} e=${t.escalation}/></td>
+                <td><${LaneStatus} l=${t.agentLane}/></td><td><${LaneReason} l=${t.agentLane}/></td></tr>
+              ${isOpen && html`<tr class="det"><td colSpan="7">${t.escalation && t.escalation.state==='sent'? html`Escalated to ${t.escalation.to} at ${t.escalation.when}. Action taken: “${t.escalation.message}”.`
+                : t.escalation? html`If this is still not done, it goes to ${t.escalation.to} ${t.escalation.when.toLowerCase()}${cal.ex? html` as part of decision <button type="button" class="ca-link" onClick=${(e)=>{ e.stopPropagation(); FCT.openDrawer(cal.ex.id); }}>${cal.ex.id}</button>` : ''}`
+                : html`Not due yet (due ${wd(t.dueWD)}; today is ${wd(cal.todayWD)}), so nothing will be escalated.`}</td></tr>`}
+            </${Fragment}>`; })}</tbody></table>`
+          : html`<p class="faint" style=${{ margin:0 }}>Every task for this close is complete.</p>`}
+        <div class="cc-foot"><span>${blockedCount} overdue · ${cpCount} could delay the whole close</span>
+          <span class="fn-num">${sentCount} already escalated · ${timerCount} will be escalated if not done in time</span></div>
+      </section>
+
+      <section class="cc-card" aria-label="Why the forecast says this">
+        <div class="cc-card-h"><span class="fn-ml">Why the close is expected on ${wd(cal.predictedDay)}${slip>0? ' instead of '+wd(cal.committedDay) : ''} — close risk ${cal.risk.score} out of 100 (${cal.risk.cat})</span>
+          <small>Main reasons, from the R2R close-risk model</small></div>
+        <div class="cc-why">${drivers.map((f)=> html`<div key=${f.id}><small>${f.name}</small><b>${f.why}</b><span>How it is measured: ${f.src}</span></div>`)}</div>
+        ${cal.ex && html`<div class="cc-foot" style=${{ borderTop:0, paddingTop:0 }}><span>AI suggestion: ${cal.ex.ai && cal.ex.ai.short}</span>
+          <button type="button" class="ca-link" onClick=${()=> FCT.openDrawer(cal.ex.id)}>${FCT.isOpen(cal.ex)? 'Review and approve' : 'View the decision taken on'} ${cal.ex.id} in the decision queue ›</button></div>`}
+      </section>
+
+      <section class="cc-card" aria-label="Sign-off">
+        <div class="cc-card-h"><span class="fn-ml">Sign-off status</span><small>Have the reconciliations been reviewed, and has the controller signed off?</small></div>
+        <div class="cc-sgn"><i aria-hidden="true" style=${{ background:sgnColor }}/>
+          <span>Review and sign-off tasks: ${cal.signoff.done} of ${cal.signoff.n} done · ${cal.signoff.inFlight} still open · ${cal.signoff.late} overdue</span>
+          <b style=${{ color:sgnColor }}>${cal.signoff.status}</b></div>
+      </section>
+    </main>`;
+  }
+
+  function App(){
+    return html`<div class="px-scr"><${P.ScreenTabs} on="close-calendar" right=${null}/><${CloseCalendar}/></div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.FIN? 'The tower data or engines did not load.' : !window.React? 'The UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>

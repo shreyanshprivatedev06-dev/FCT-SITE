@@ -8,7 +8,7 @@
   window.R2R = P;
 
   /* ---------- tower identity: command bar, storage, accents and icons for R2R KPIs, breadcrumb labels ---------- */
-  P.TOWER = { code:'R2R', name:'Record to report', base:'screens/r2r/', tabs:[['entities','Entity profiles','Building2'],['desk','Scorecard','Gauge'],['process','Process chain','Layers']] };
+  P.TOWER = { code:'R2R', name:'Record to report', base:'screens/r2r/', tabs:[['entities','Entity profiles','Building2'],['desk','Scorecard','Gauge'],['process','Process chain','Layers'],['close-calendar','Close calendar','CalendarClock']] };
   /* R2R view tabs: the KPI sheet and its three child screens; shown between the breadcrumb and the content on each of them */
   P.RViewTabs = ({ on, onSheet })=> html`<nav class="px-tabs" aria-label="R2R views" style=${{ margin:0 }}>${[['sheet', 'KPI sheet', 'Gauge', 'desk.html#sheet'], ['journals', 'Journals & anomalies', 'BookOpen', 'journals.html'], ['intercompany', 'Intercompany & consolidation', 'GitCompare', 'intercompany.html'], ['reporting', 'Reporting & sign-off', 'FileCheck', 'reporting.html']].map(([k, t, ic, href])=>
     html`<a key=${k} class=${on===k? 'on' : ''} aria-current=${on===k? 'page' : undefined} href=${FCT.href('screens/r2r/'+href)} onClick=${k==='sheet' && onSheet? (e)=>{ e.preventDefault(); onSheet(); } : undefined} style=${{ display:'inline-flex', alignItems:'center', gap:6 }}><${Icon} n=${ic} size=${14}/>${t}</a>`)}</nav>`;

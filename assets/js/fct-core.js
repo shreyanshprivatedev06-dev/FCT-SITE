@@ -102,9 +102,11 @@
     { id:'O2C', label:'Order to cash', q:'Is revenue right and is cash coming in?', items:[
       ['o2c/customers','Customer profiles'],['o2c/desk','O2C scorecard'],['o2c/process','Process chain'] ]},
     { id:'R2R', label:'Record to report', q:'Will we close on time, and are the numbers right?', items:[
-      ['r2r/entities','Entity profiles'],['r2r/desk','R2R scorecard'],['r2r/process','Process chain'] ]},
+      ['r2r/entities','Entity profiles'],['r2r/desk','R2R scorecard'],['r2r/process','Process chain'],['r2r/close-calendar','Close calendar'] ]},
     { id:'SC', label:'Supply chain', q:'Is inventory stated right, and is cash tied up?', items:[
       ['sc/materials','Material profiles'],['sc/desk','SC scorecard'],['sc/process','Process chain'] ]},
+    { id:'FIN', label:'Cash attribution', q:'Where is cash held up, and who must fix it?', items:[
+      ['fin/cash-attribution','Cash attribution'] ]},
     { id:'CMP', label:'Compliance', q:'Are controls working, and are we audit-ready?', items:[
       ['cmp/entities','Entity profiles'],['cmp/executive','Compliance story'] ]}
   ];
@@ -125,6 +127,7 @@
     O2C:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
     R2R:'<path d="M4 4.5h6a2 2 0 0 1 2 2V20a2 2 0 0 0-2-2H4z"/><path d="M20 4.5h-6a2 2 0 0 0-2 2V20a2 2 0 0 1 2-2h6z"/>',
     SC:'<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/>',
+    FIN:'<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M12 12.5v5M10 13.8c0-.8.9-1.3 2-1.3s2 .5 2 1.2c0 1.6-4 .9-4 2.6 0 .7.9 1.2 2 1.2s2-.5 2-1.3"/>',
     CMP:'<path d="M12 3 4.5 6v6c0 4.4 3.2 7.6 7.5 9 4.3-1.4 7.5-4.6 7.5-9V6z"/><path d="m8.8 12 2.2 2.2 4.3-4.4"/>' };
   const navIcon = (id)=> `<svg class="ni" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICON[id]||NAV_ICON.HOME}</svg>`;
   function railHTML(page){
@@ -132,9 +135,13 @@
     const p = D.persona;
     const groups = FCT.NAV.map(g=>{
       const cur = g.id===curTower || (curTower==='HOME' && g.id==='HOME'), open = cur;
-      const code = g.id==='HOME'? 'Home' : g.id==='SC'? 'SCM' : g.id;
+      const code = g.id==='HOME'? 'Home' : g.id==='SC'? 'SCM' : g.id==='FIN'? 'Cash' : g.id;
       const items = g.items.map(([path,label])=> `<a href="${FCT.href('screens/'+path+'.html')}" class="${path===page?'active':''}"${path===page?' aria-current="page"':''}>${label}</a>`).join('');
       /* the group body doubles as the flyout in the slim rail: same links, same order */
+      /* a group with one screen is a plain link: no dropdown to open */
+      if(g.items.length===1){ const href = FCT.href('screens/'+g.items[0][0]+'.html'), on = g.items[0][0]===page;
+        return `<div class="nav-group single${cur?' cur':''}" data-g="${g.id}"><a class="nav-head${on?' active':''}" href="${href}"${on?' aria-current="page"':''} title="${g.label}">
+          ${navIcon(g.id)}<span class="tw"><span class="lb">${g.label}</span><span class="cd">${code}</span></span></a></div>`; }
       return `<div class="nav-group${open?' open':''}${cur?' cur':''}" data-g="${g.id}">
         <button class="nav-head" type="button" aria-expanded="${open}" data-first="${FCT.href('screens/'+g.items[0][0]+'.html')}" title="${g.label}">
           ${navIcon(g.id)}<span class="tw"><span class="lb">${g.label}</span><span class="cd">${code}</span></span>
@@ -203,7 +210,7 @@
   const railPref = ()=>{ try{ return localStorage.getItem('fct-rail'); }catch(e){ return null; } };
   FCT.railMin = (on)=>{ document.body.classList.toggle('rail-min', on); try{ localStorage.setItem('fct-rail', on? 'min' : 'full'); }catch(e){} };
   function wireRail(root){
-    root.querySelectorAll('.nav-head').forEach(b=>b.addEventListener('click',()=>{
+    root.querySelectorAll('button.nav-head').forEach(b=>b.addEventListener('click',()=>{
       if(document.body.classList.contains('rail-min') && innerWidth>860){ location.href = b.dataset.first; return; }
       const g=b.parentElement; g.classList.toggle('open'); b.setAttribute('aria-expanded', g.classList.contains('open')); }));
     const c = root.querySelector('.rail-collapse'); if(c) c.addEventListener('click',()=> FCT.railMin(!document.body.classList.contains('rail-min')));

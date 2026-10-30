@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cash attribution | FCT</title>
+<script>window.__fctErr=[];addEventListener("error",function(e){__fctErr.push(e.message||("Could not load "+((e.target&&(e.target.src||e.target.href))||"a file")));},true);</script>
+<script src="../../assets/js/load.js"></script>
+<script src="../../assets/js/p2p/load-p2p.js"></script>
+<script src="../../data/o2c/master.js"></script><script src="../../data/o2c/ledger.js"></script><script src="../../assets/js/o2c/o2c-model.js"></script>
+<script src="../../data/r2r/master.js"></script><script src="../../data/r2r/ledger.js"></script><script src="../../assets/js/r2r/r2r-model.js"></script>
+<script src="../../assets/js/fin/fin-data.js"></script>
+<link rel="stylesheet" href="../../assets/css/fin.css">
+</head>
+<body data-page="fin/cash-attribution" data-root="../../">
+<div id="app"><p style="padding:24px">Loading cash attribution…</p></div>
+<script>
+/* Cash attribution: where cash is stuck, which function causes it, and whether a fix is in flight.
+   Causes grouped by originating function flow right into two cash pools — Blocked AP (P2P blocked invoices) and Revenue at risk
+   (O2C potential exposure). A lens rail recomputes over whatever survives both filters; the inspector traces the selected cause
+   to its fix in the pipeline, the decision behind it and its cash opportunity. Every figure comes from the tower engines (fin-data.js). */
+(function(){
+  const P = window.P2P, { html, Icon } = P, FCT = window.FCT, FIN = window.FIN;
+  const { useState, useEffect, useMemo, useRef } = React;
+  P.TOWER = { code:'CASH', name:'Cash & close', base:'screens/fin/', tabs:[['cash-attribution','Cash attribution','IndianRupee']] };
+
+  const amt = (v)=> FCT.amt(v).replace(/ Cr$/, ' crore');   /* the towers write crore in full */
+  const CAUSES = FIN.causes(), AN = FIN.anchors(), POOL = FIN.POOL, CUT = FIN.CUTOFF_DAYS;
+  const poolOf = (c)=> c.pool, fnOf = (c)=> c.fn;
+  const sumV = (cs)=> cs.reduce((t, c)=> t + c.value, 0);
+  const inside = (c)=> POOL[c.pool].inside.includes(c.fn);
+
+  /* Sankey geometry — ported from the reference design (viewBox units). */
+  const W = 1180, TOP = 74, BOT_PAD = 56, NODE_X = 498, NODE_W = 13, STAT_X = NODE_X - 7, STAT_W = 4, POOL_X = 880, POOL_W = 15;
+  const GAP = 7, GROUP_GAP = 15, POOL_GAP = 54, X0 = NODE_X + NODE_W, X1 = POOL_X;
+
+  function computeLayout(H){
+    const SPAN = H - BOT_PAD - TOP;
+    const groups = [...new Set(CAUSES.map(fnOf))]
+      .map((o)=> ({ o, cs:CAUSES.filter((c)=> fnOf(c)===o).slice().sort((a,b)=> b.value-a.value), v:sumV(CAUSES.filter((c)=> fnOf(c)===o)) }))
+      .sort((a,b)=> b.v-a.v);
+    const gapTotal = GAP*(CAUSES.length - groups.length) + GROUP_GAP*(groups.length-1);
+    const SCALE = (SPAN - gapTotal - 26*groups.length) / sumV(CAUSES);
+    const hOf = (v)=> Math.max(11, v*SCALE);
+    const poolH = { ap:sumV(CAUSES.filter((c)=> c.pool==='ap').map((c)=> ({ value:hOf(c.value) }))), ar:sumV(CAUSES.filter((c)=> c.pool==='ar').map((c)=> ({ value:hOf(c.value) }))) };
+    const tot = poolH.ap + poolH.ar + POOL_GAP;
+    const poolsY = { ap:TOP + Math.max(0, (SPAN-tot)/2), ar:TOP + Math.max(0, (SPAN-tot)/2) + poolH.ap + POOL_GAP };
+    let y = TOP; const geoArr = [], groupMeta = [];
+    groups.forEach((g, gi)=>{
+      groupMeta.push({ o:g.o, y0:y }); y += 26;   /* room for the function label above its first band */
+      g.cs.forEach((c, ci)=>{ const h = hOf(c.value); geoArr.push({ c, pool:c.pool, y, h, landT:0, landB:0, ribbonD:'' }); y += h; if(ci < g.cs.length-1) y += GAP; });
+      if(gi < groups.length-1) y += GROUP_GAP;
+    });
+    /* ribbons land on the pools in band order; each keeps its source height */
+    const cursor = { ap:poolsY.ap, ar:poolsY.ar }, m0 = X0 + (X1-X0)*0.5, m1 = X1 - (X1-X0)*0.5;
+    geoArr.forEach((g)=>{ const y0t = g.y, y0b = g.y + g.h, y1t = cursor[g.pool], y1b = y1t + g.h; cursor[g.pool] = y1b; g.landT = y1t; g.landB = y1b;
+      g.ribbonD = `M${X0},${y0t} C${m0},${y0t} ${m1},${y1t} ${X1},${y1t} L${X1},${y1b} C${m1},${y1b} ${m0},${y0b} ${X0},${y0b} Z`; });
+    return { geoArr, groupMeta, poolsY, poolH, need:y + BOT_PAD };
+  }
+  /* the layout needs a height that fits every label; measure once and size the viewBox to it */
+  const NEED_H = (()=>{ let h = 640; for(let i=0;i<8;i++){ const n = computeLayout(h).need; if(n <= h) break; h = n + 10; } return h; })();
+
+  function passesLens(c, lens){
+    if(lens==='outside') return !inside(c);
+    if(lens==='human') return c.open;
+    if(lens==='noowner') return c.state==='none';
+    if(lens==='close') return c.avgDays >= CUT;
+    return true;
+  }
+
+  /* deterministic starfield, drawn in the workspace ink so it follows the light / dark theme */
+  function mulberry32(seed){ let s = seed|0; return ()=>{ s = (s + 0x6d2b79f5)|0; let t = Math.imul(s ^ (s>>>15), 1|s); t = (t + Math.imul(t ^ (t>>>7), 61|t)) ^ t; return ((t ^ (t>>>14))>>>0)/4294967296; }; }
+  function Starfield(){
+    const ref = useRef(null);
+    useEffect(()=>{
+      const canvas = ref.current; if(!canvas) return; const ctx = canvas.getContext('2d'); if(!ctx) return;
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let raf = 0, stars = [], wCss = 0, hCss = 0, ink = '228,235,233';
+      const refreshInk = ()=>{ const v = getComputedStyle(canvas.parentElement).getPropertyValue('--ink').trim(); if(/^#([0-9a-f]{6})$/i.test(v)){ const n = parseInt(v.slice(1), 16); ink = `${(n>>16)&255},${(n>>8)&255},${n&255}`; } };
+      const seedField = ()=>{ const p = canvas.parentElement; if(!p || !p.clientWidth) return; wCss = p.clientWidth; hCss = p.clientHeight; const dpr = Math.min(2, devicePixelRatio||1);
+        canvas.width = Math.round(wCss*dpr); canvas.height = Math.round(hCss*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+        const rng = mulberry32(0x5eed), n = Math.max(18, Math.round(wCss*hCss/26000));
+        stars = Array.from({ length:n }, ()=> ({ x:rng()*wCss, y:rng()*hCss, z:.4 + rng()*.6, vx:(rng()-.5)*.05, vy:(rng()-.5)*.05, ph:rng()*6.28 })); };
+      const draw = (t)=>{ ctx.clearRect(0,0,wCss,hCss); const L = 130;
+        for(let i=0;i<stars.length;i++){ const a = stars[i];
+          if(!reduce){ a.x += a.vx; a.y += a.vy; if(a.x<0) a.x = wCss; else if(a.x>wCss) a.x = 0; if(a.y<0) a.y = hCss; else if(a.y>hCss) a.y = 0; }
+          for(let j=i+1;j<stars.length;j++){ const b = stars[j], dx = a.x-b.x, dy = a.y-b.y, d2 = dx*dx + dy*dy;
+            if(d2 < L*L){ ctx.strokeStyle = `rgba(${ink},${((1-Math.sqrt(d2)/L)*.11*Math.min(a.z,b.z)).toFixed(3)})`; ctx.lineWidth = .55; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } } }
+        stars.forEach((s)=>{ const tw = reduce? 1 : .65 + .35*Math.sin(t*.001 + s.ph); ctx.fillStyle = `rgba(${ink},${(.22*s.z*tw).toFixed(3)})`; ctx.beginPath(); ctx.arc(s.x, s.y, (.5+s.z)*tw, 0, 6.283); ctx.fill(); }); };
+      const loop = (t)=>{ draw(t); if(!reduce) raf = requestAnimationFrame(loop); };
+      seedField(); refreshInk(); if(reduce) draw(0); else raf = requestAnimationFrame(loop);
+      const onResize = ()=>{ seedField(); if(reduce) draw(0); }; addEventListener('resize', onResize);
+      /* the theme toggle swaps a body class; the canvas paints from a colour snapshot, so re-read the ink when it changes */
+      const mo = new MutationObserver(()=>{ refreshInk(); if(reduce) draw(0); }); mo.observe(document.body, { attributes:true, attributeFilter:['class'] });
+      return ()=>{ cancelAnimationFrame(raf); removeEventListener('resize', onResize); mo.disconnect(); };
+    }, []);
+    return html`<canvas ref=${ref} class="fn-stars" aria-hidden="true"/>`;
+  }
+
+  const ML = { fontSize:14, fontWeight:600, fill:'var(--ink-2)' };
+  const go = (p)=>{ location.href = FCT.href(p); };
+
+  function CashAttribution(){
+    const reduce = useMemo(()=> matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+    const first = CAUSES.slice().sort((a,b)=> b.value-a.value)[0];
+    const [selected, setSelected] = useState(first? first.key : null);
+    const [lens, setLens] = useState('all');
+    const [proc, setProc] = useState('all');
+    const [hintGone, setHintGone] = useState(false);
+    const [fxOn, setFxOn] = useState(false);
+    useEffect(()=>{ if(!selected) return; setFxOn(false); if(reduce){ setFxOn(true); return; } const t = setTimeout(()=> setFxOn(true), 420); return ()=> clearTimeout(t); }, [selected, reduce]);
+
+    /* the directional wipe opens on every selection, driven with rAF */
+    const wipeRef = useRef(null);
+    useEffect(()=>{ if(!selected || reduce) return; const rect = wipeRef.current; if(!rect) return; let raf = 0; const t0 = performance.now(), Dur = 550;
+      const tick = (t)=>{ const p = Math.max(0, Math.min(1, (t-t0)/Dur)); rect.setAttribute('width', String((X1-X0+2)*(1-(1-p)**3))); if(p<1) raf = requestAnimationFrame(tick); };
+      raf = requestAnimationFrame(tick); return ()=> cancelAnimationFrame(raf); }, [selected, reduce]);
+
+    /* fit the workspace to the viewport under the command bar */
+    const boxRef = useRef(null);
+    useEffect(()=>{ const fit = ()=>{ const el = boxRef.current; if(!el) return; const top = el.getBoundingClientRect().top + scrollY; el.style.height = Math.max(900, innerHeight - top - 14) + 'px'; };
+      fit(); addEventListener('resize', fit); const t = setTimeout(fit, 250); return ()=>{ removeEventListener('resize', fit); clearTimeout(t); }; }, []);
+
+    /* the viewBox takes the spine's aspect ratio, never shorter than the labels need */
+    const spineRef = useRef(null), [boxH, setBoxH] = useState(NEED_H);
+    useEffect(()=>{ const m = ()=>{ const el = spineRef.current; if(!el || !el.clientWidth) return; setBoxH(NEED_H); };
+      m(); addEventListener('resize', m); const t = setTimeout(m, 300); return ()=>{ removeEventListener('resize', m); clearTimeout(t); }; }, []);
+    const H = boxH;
+    const { geoArr, groupMeta, poolsY, poolH } = useMemo(()=> computeLayout(H), [H]);
+    const byKey = useMemo(()=> new Map(geoArr.map((g)=> [g.c.key, g])), [geoArr]);
+    const sel = selected? byKey.get(selected) || null : null;
+
+    /* process (P2P / O2C) and lens are independent axes combined with AND; the readout recomputes over what survives both */
+    const subset = CAUSES.filter((c)=> (proc==='all' || c.pool===proc) && passesLens(c, lens));
+    const scoped = CAUSES.filter((c)=> proc==='all' || c.pool===proc);
+    let roBig, roNote;
+    if(!subset.length){ roBig = amt(0); roNote = 'Nothing matches this filter.'; }
+    else if(lens==='outside'){ const pct = Math.round(sumV(subset)/sumV(scoped)*100); roBig = amt(sumV(subset));
+      roNote = `${pct}% of this cash is held up because of a problem that starts in another team — for example, a plant not recording goods received. Only that team can stop it happening again; chasing AP or collections harder will not.`; }
+    else if(lens==='human'){ const confs = subset.filter((c)=> c.conf!=null), avg = confs.length? Math.round(confs.reduce((t,c)=> t + c.conf, 0)/confs.length) : null; roBig = amt(sumV(subset));
+      roNote = `${subset.length} of ${scoped.length} root causes need your approval. The AI has suggested an action for each${avg!=null? ` (average confidence ${avg}%)` : ''}, but nothing happens until you approve it in the decision queue.`; }
+    else if(lens==='noowner'){ roBig = amt(sumV(subset)); roNote = `${subset.length} of ${scoped.length} root causes have nobody working on a fix — no owner has been named and there is no target date.`; }
+    else if(lens==='close'){ roBig = amt(sumV(subset)); roNote = `These items have waited ${CUT} days or more on average, so they were already open at the previous month-end and are still open now.`; }
+    else { roBig = amt(sumV(subset)); roNote = `${subset.length} root causes${proc==='all'? ' across supplier invoices (P2P) and customer receivables (O2C)' : ' in '+(proc==='ap'? 'supplier invoices (P2P)' : 'customer receivables (O2C)')}. The amounts add up exactly to the total at the top of the page.`; }
+
+    const humanRows = CAUSES.filter((c)=> c.open).sort((a,b)=> b.value-a.value).slice(0,5);
+    const selCause = sel? sel.c : null;
+    const poolColor = (p)=> POOL[p].color;
+    const selectCause = (k)=>{ setSelected(k); setHintGone(true); };
+    const selectLens = (k)=>{ setLens(k); setSelected(null); };
+
+    const ribbonStyle = (g)=>{
+      const base = { transition:'opacity .3s ease, fill-opacity .3s ease', fill:poolColor(g.pool) };
+      if((proc!=='all' && g.pool!==proc) || !passesLens(g.c, lens)) return Object.assign(base, { opacity:.13, fillOpacity:.17 });
+      if(selected===g.c.key) return Object.assign(base, { fillOpacity:.75, stroke:poolColor(g.pool), strokeWidth:1.5, strokeOpacity:1, clipPath:reduce? undefined : 'url(#fn-ca-wipe)', filter:'none' });
+      if(selected) return Object.assign(base, { fillOpacity:.14 });
+      return Object.assign(base, { fillOpacity:.38 });
+    };
+    const renderOrder = [...geoArr].sort((a,b)=> (a.c.key===selected?1:0) - (b.c.key===selected?1:0));
+    const total = sumV(CAUSES);
+
+    const noFix = CAUSES.filter((c)=> c.state==='none'), waiting = CAUSES.filter((c)=> c.open);
+    return html`<main class="px-page wide k-teal ca-page" aria-label="Cash attribution">
+      <div class="px-page-h"><h1>Cash attribution</h1><p>${'How much cash is held up across the group, what is causing it, which team the problem starts in, and whether anyone is fixing it. Covers all '+FCT.n(FIN.entities().length)+' entities for the September 2026 month-end; figures as at '+FCT.nowLabel(0)+'.'}</p></div>
+      <div class="px-stats row">
+        <${P.Stat} label="Cash held up" value=${amt(total)} sub=${'Blocked invoices plus potential exposure, from '+CAUSES.length+' root causes'}/>
+        <${P.Stat} label="Blocked invoices (P2P)" value=${amt(AN.apBlocked)} sub="Supplier invoices on hold; they cannot be paid until the problem is fixed"/>
+        <${P.Stat} label="Potential exposure (O2C)" value=${amt(AN.arPotential)} sub="Customer amounts at risk of not being collected in full"/>
+        <${P.Stat} label="No fix planned" value=${amt(sumV(noFix))} sub=${'Held up by '+noFix.length+' root causes that nobody is working to fix yet'}/>
+        <${P.Stat} label="Awaiting your decision" value=${FCT.n(waiting.length)+' of '+CAUSES.length} sub="Root causes where a suggested action is waiting for your approval"/></div>
+    <div class="ca" ref=${boxRef} id="fn-ca">
+      <nav class="ca-rail" aria-label="Filters and lenses">
+        <span class="fn-ml">Show cash from</span>
+        <div class="ca-seg" role="group" aria-label="Filter by process">${[['all','Both'],['ap','Suppliers'],['ar','Customers']].map(([k,l])=> html`<button key=${k} type="button" class=${proc===k? 'on' : ''} aria-pressed=${proc===k} onClick=${()=> setProc(k)}>${l}</button>`)}</div>
+        <hr class="ca-hr"/>
+        <span class="fn-ml">Filter by</span>
+        ${[['all','All cash held up', amt(total)+' · '+CAUSES.length+' root causes'], ['outside','Caused by another team','the problem starts in a different team from the one holding the cash'], ['human','Awaiting your decision','a suggested action needs your approval'],
+          ['noowner','No fix planned','nobody is working on a fix yet'], ['close','Waiting 30+ days', `items have waited ${CUT} days or more on average`]].map(([k,s,e])=>
+          html`<button key=${k} type="button" class=${'ca-lens'+(lens===k? ' on' : '')} aria-pressed=${lens===k} onClick=${()=> selectLens(k)}><strong>${s}</strong><em>${e}</em></button>`)}
+        <hr class="ca-hr"/>
+        <div class="ca-ro" aria-live="polite"><span class="fn-ml" style=${{ display:'block', marginBottom:8, padding:0 }}>Total for the selected filter</span><div class="big fn-num">${roBig}</div><p>${roNote}</p></div>
+        <div class="ca-key"><span class="fn-ml" style=${{ display:'block', marginBottom:8, padding:0 }}>Fix status</span>
+          ${['fixed-at-source','in-progress','identified','none'].map((s)=> html`<div key=${s}><i aria-hidden="true" style=${{ background:FIN.statusColor(s) }}/>${FIN.STATUS_LABEL[s]}${FIN.STATUS_NOTE[s]? ' · '+FIN.STATUS_NOTE[s] : ''}</div>`)}</div>
+      </nav>
+
+      <section class="ca-spine" ref=${spineRef}>
+        <svg viewBox=${`0 0 ${W} ${H}`} width="100%" style=${{ height:"auto", display:"block" }} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Attribution of stuck cash from originating function to where the cash sits, with fix status">
+          <defs key=${'wipe-'+(selected||'none')}><clipPath id="fn-ca-wipe"><rect ref=${wipeRef} x=${X0} y=${0} height=${H} width=${reduce? W : 0}/></clipPath></defs>
+          <text x=${20} y=${48} style=${ML}>1. Team where the problem starts</text>
+          <text x=${NODE_X-150} y=${48} style=${ML}>2. Root cause (thin bar = fix status)</text>
+          <text x=${POOL_X} y=${48} style=${ML}>3. Where the cash is held up</text>
+          ${groupMeta.map((g)=> html`<g key=${g.o}><text x=${20} y=${g.y0+12} style=${Object.assign({}, ML, { fontSize:13, fill:'var(--ink-3)' })}>${g.o}</text>
+            <line x1=${20} y1=${g.y0+19} x2=${NODE_X-16} y2=${g.y0+19} style=${{ stroke:'var(--line)' }} strokeWidth=${1}/></g>`)}
+          <g>${renderOrder.map((g)=> html`<path key=${g.c.key} d=${g.ribbonD} style=${ribbonStyle(g)}/>`)}</g>
+
+          ${['ap','ar'].map((p)=>{ const py = poolsY[p], tx = POOL_X + POOL_W + 14, pc = CAUSES.filter((c)=> c.pool===p), pv = sumV(pc);
+            const outV = sumV(pc.filter((c)=> !inside(c))), noFix = sumV(pc.filter((c)=> c.state==='none'));
+            const op = (proc!=='all' && proc!==p)? .13 : sel && sel.pool!==p? .3 : 1;
+            return html`<g key=${p} class="ca-pool" role="link" tabIndex="0" aria-label=${POOL[p].name+', '+amt(pv)+', open the '+POOL[p].tower+' process chain'} style=${{ opacity:op }}
+              onClick=${()=> go(POOL[p].href)} onKeyDown=${(e)=>{ if(e.key==='Enter'){ e.preventDefault(); go(POOL[p].href); } }}>
+              <rect x=${POOL_X} y=${py} width=${POOL_W} height=${poolH[p]} rx=${2} style=${{ fill:poolColor(p), fillOpacity:.95 }}/>
+              <text x=${tx} y=${py+26} class="fn-num" style=${{ fontSize:23.4, fontWeight:700, letterSpacing:'-.02em', fill:poolColor(p) }}>${amt(pv)}</text>
+              <text x=${tx} y=${py+52} class="pname" style=${{ fontSize:17.6, fontWeight:650, fill:'var(--ink)' }}>${POOL[p].name}</text>
+              <text x=${tx} y=${py+72} style=${{ fontSize:13.7, fill:'var(--ink-3)' }}>${POOL[p].tower}: ${POOL[p].sub}</text>
+              <line x1=${tx} y1=${py+88} x2=${tx+210} y2=${py+88} style=${{ stroke:'var(--line)' }} strokeWidth=${1}/>
+              <text x=${tx} y=${py+108} style=${{ fontSize:13.7, fill:'var(--ink-2)' }}>↳ ${POOL[p].next}</text>
+              <text x=${tx} y=${py+130} style=${{ fontSize:13.7, fill:'var(--crit)' }}>${Math.round(outV/pv*100)}% of this starts in another team</text>
+              ${noFix>0 && html`<text x=${tx} y=${py+150} style=${{ fontSize:13.7, fill:'var(--crit)' }}>${amt(noFix)} has nobody fixing it</text>`}</g>`; })}
+
+          ${geoArr.map((g)=>{ const c = g.c, isSel = selected===c.key, off = (proc!=='all' && g.pool!==proc) || !passesLens(c, lens), bh = g.h, ty = g.y + Math.min(bh/2, 13);
+            return html`<g key=${c.key} class="ca-band" role="button" tabIndex=${off? -1 : 0} aria-pressed=${isSel}
+              aria-label=${`${c.name}, ${amt(c.value)} stuck, fix status ${FIN.STATUS_LABEL[c.state]}`}
+              onClick=${()=> selectCause(c.key)} onKeyDown=${(e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectCause(c.key); } }}
+              style=${{ opacity:off? .13 : 1, pointerEvents:off? 'none' : undefined }}>
+              <rect x=${14} y=${g.y-3} width=${POOL_X-14} height=${bh+6} style=${{ fill:'transparent' }}/>
+              <rect class="rowbg" x=${14} y=${g.y-3} width=${NODE_X+NODE_W-14} height=${bh+6} rx=${3} style=${{ fill:'var(--ink)' }}/>
+              <path d=${`M14,${g.y+bh/2-5} L20,${g.y+bh/2} L14,${g.y+bh/2+5} Z`} style=${{ fill:'var(--px-brand)', opacity:isSel? 1 : 0 }}/>
+              <rect x=${STAT_X} y=${g.y} width=${STAT_W} height=${bh} rx=${1} style=${{ fill:FIN.statusColor(c.state), opacity:isSel || !selected? (c.state==='none'? .7 : .95) : .45 }}/>
+              <rect x=${NODE_X} y=${g.y} width=${NODE_W} height=${bh} rx=${2} style=${{ fill:poolColor(g.pool), opacity:isSel || !selected? 1 : .4 }}/>
+              <text class="cname" x=${NODE_X-16} y=${ty + (bh<30? 4 : 0)} textAnchor="end" style=${{ fontSize:15.6, fontWeight:isSel? 700 : 600, fill:isSel? 'var(--ink)' : 'var(--ink-2)' }}>${c.name}</text>
+              ${bh>=30? html`<text x=${NODE_X-16} y=${ty+18} textAnchor="end" class="fn-num" style=${{ fontSize:13.7, fill:isSel? 'var(--ink)' : 'var(--ink-3)' }}>${amt(c.value)} · ${FCT.n(c.n)} ${c.unit}</text>`
+                : html`<text x=${NODE_X+NODE_W+9} y=${ty+4} class="fn-num" style=${{ fontSize:13.7, fill:isSel? 'var(--ink)' : 'var(--ink-3)' }}>${amt(c.value)}</text>`}
+              ${bh>=58 && html`<text x=${NODE_X-16} y=${ty+35} textAnchor="end" style=${{ fontSize:13, fill:'var(--ink-3)', opacity:isSel || !selected? 1 : .55 }}>waiting ${Math.round(c.avgDays)} days on average · seen in ${c.months} of the last 6 months</text>`}</g>`; })}
+
+          ${sel && (proc==='all' || sel.pool===proc) && passesLens(sel.c, lens) && (()=>{
+            const cap = `${amt(sel.c.value)} = ${Math.round(sel.c.value/sumV(CAUSES.filter((c)=> c.pool===sel.pool))*100)}% of all ${POOL[sel.pool].name.toLowerCase()}`;
+            const cw = cap.length*8.4 + 24, cxm = (X0+X1)/2, cy = ((sel.y + sel.h/2) + (sel.landT + sel.landB)/2)/2;
+            return html`<g key=${'fx-'+sel.c.key} style=${{ opacity:fxOn? 1 : 0, transition:'opacity .3s ease' }}>
+              <rect x=${POOL_X-3} y=${sel.landT-2} width=${POOL_W+6} height=${sel.landB-sel.landT+4} rx=${2} style=${{ fill:'none', stroke:poolColor(sel.pool), strokeWidth:1.6 }}/>
+              <rect x=${cxm-cw/2} y=${cy-16} width=${cw} height=${30} rx=${4} style=${{ fill:'var(--surface)', stroke:poolColor(sel.pool), strokeWidth:1 }}/>
+              <text x=${cxm} y=${cy+4} textAnchor="middle" class="fn-num" style=${{ fontSize:14.3, fontWeight:600, fill:'var(--ink)' }}>${cap}</text></g>`; })()}
+        </svg>
+        ${!hintGone && html`<span class="ca-hint">Click a root cause on the left — <b>the coloured band shows where its cash ends up</b></span>`}
+      </section>
+
+      <aside class="ca-side" aria-label="Awaiting your decision">
+        <span class="fn-ml">Awaiting your decision</span>
+        ${humanRows.map((c)=>{ const off = (proc!=='all' && c.pool!==proc) || !passesLens(c, lens);
+          return html`<button key=${c.key} type="button" class="ca-srow" style=${{ opacity:off? .3 : 1 }} onClick=${()=> selectCause(c.key)}>
+            <span class="n">${c.name}</span><span class="v fn-num" style=${{ color:poolColor(c.pool) }}>${amt(c.value)}</span>
+            <span class=${'s'+(c.state==='none'? ' bad' : '')}>${FIN.STATUS_LABEL[c.state]}${c.owner? ' · owner: '+c.owner : ''} · decision ${c.ex}</span></button>`; })}
+        <p class="ca-note">Each of these has an action waiting for your approval. Once you approve or change it in the decision queue, it leaves this list.</p>
+      </aside>
+
+      <section class="ca-insp" aria-label="Selected cause">
+        ${selCause && sel? html`
+          <div style=${{ minWidth:0 }}>
+            <div style=${{ display:'flex', alignItems:'center', gap:10 }}>
+              <span class="tag" style=${{ borderColor:poolColor(sel.pool), color:poolColor(sel.pool) }}>Starts in: ${selCause.fn}</span>
+              <span class="fn-ml">${sel.pool==='ap'? 'P2P (suppliers)' : 'O2C (customers)'} · decision ${selCause.ex || '—'}</span></div>
+            <button type="button" class="title" title=${'Open the '+POOL[sel.pool].tower+' process chain'} onClick=${()=> go(POOL[sel.pool].href)}>${selCause.name}</button>
+            <div class="ca-chain">
+              ${['Starts in '+selCause.fn, selCause.name, amt(selCause.value)+' '+POOL[sel.pool].name.toLowerCase(), POOL[sel.pool].next].map((t,i)=> html`<span key=${i} style=${{ display:'inline-flex', alignItems:'center', gap:6 }}>
+                ${i>0 && html`<i aria-hidden="true">→</i>`}<b style=${i===2? { borderColor:poolColor(sel.pool), color:poolColor(sel.pool) } : null}>${t}</b></span>`)}
+              <span class="mix">Where it happens: ${selCause.where.map((w)=> w.name+' '+w.pct+'%').join(', ')}${selCause.cp? ' · largest '+selCause.cp.kind+': '+selCause.cp.name+' ('+selCause.cp.pct+'% of the value)' : ''}</span></div>
+            <div class="ca-kv">${[['Cash held up', amt(selCause.value), poolColor(sel.pool)], ['Average wait', Math.round(selCause.avgDays)+' days', 'var(--ink)'],
+              [selCause.pool==='ap'? 'Invoices affected' : 'Customer cases', FCT.n(selCause.n), 'var(--ink)'], ['AI confidence', selCause.conf==null? 'No AI suggestion' : selCause.conf+'%', selCause.conf==null? 'var(--ink-3)' : 'var(--pos)']]
+              .map(([l,v,c])=> html`<div key=${l}><small>${l}</small><b class="fn-num" style=${{ color:c }}>${v}</b></div>`)}</div>
+          </div>
+          <section class="ca-pane">
+            <span class="fn-ml">Fix status</span>
+            <span style=${{ display:'flex', alignItems:'center', gap:8, marginBottom:9 }}><i aria-hidden="true" style=${{ width:8, height:8, borderRadius:'50%', background:FIN.statusColor(selCause.state) }}/>
+              <b style=${{ fontSize:13, fontWeight:650, color:FIN.statusColor(selCause.state) }}>${FIN.STATUS_LABEL[selCause.state]}</b></span>
+            ${selCause.opp? html`<dl><dt>Fix</dt><dd>${selCause.opp.title} (${selCause.opp.id})</dd><dt>Stage</dt><dd>${selCause.opp.status}</dd><dt>Owner</dt><dd>${selCause.opp.owner}</dd><dt>Effort</dt><dd>${selCause.opp.effort}</dd></dl>`
+              : html`<dl><dt>Fix</dt><dd>None suggested yet</dd><dt>Owner</dt><dd>Nobody assigned</dd></dl>`}
+            <p>${{ 'fixed-at-source':'The fix is working, so no new cases are being created. The amount shown is the old backlog that is still being cleared.',
+              'in-progress':'The fix is approved and being put in place. If it works, this amount should fall by next month-end.',
+              identified:'A fix has been suggested but work has not started, so there is no target date yet.',
+              none:'Nobody has suggested a fix, so nobody owns this problem and there is no date to check progress against.' }[selCause.state]}</p>
+          </section>
+          <section class="ca-pane">
+            <span class="fn-ml">What should be done</span>
+            <ol>${selCause.actions.map((a,i)=> html`<li key=${i}><i aria-hidden="true">${i+1}</i>${a}</li>`)}</ol>
+            <div class="ca-opp">
+              ${selCause.opp && selCause.opp.value!=null? html`<b class="fn-num">${amt(selCause.opp.value)} a year could be saved if the fix is done</b><span>${selCause.opp.title}</span><em>Effort: ${selCause.opp.effort} · Owner: ${selCause.opp.owner}</em>`
+                : html`<em>No yearly saving has been estimated for fixing this cause.</em>`}
+              ${selCause.ex && html`<button type="button" class="ca-link" onClick=${()=> FCT.openDrawer(selCause.ex)}>${selCause.open? 'Review and approve' : 'View the decision taken on'} ${selCause.ex} in the decision queue ›</button>`}
+            </div>
+          </section>` : html`<p style=${{ gridColumn:'1/-1', margin:0, color:'var(--ink-3)', fontSize:12 }}>Click a root cause in the chart, or a row on the right, to see what is causing it, who owns the fix, and what should be done.</p>`}
+      </section>
+    </div></main>`;
+  }
+
+  function App(){
+    return html`<div class="px-scr"><${P.ScreenTabs} on="cash-attribution" right=${null}/><${CashAttribution}/></div>`;
+  }
+  P.mount(App);
+})();
+</script>
+<script>
+setTimeout(function(){ var a=document.getElementById('app'); if(!a || a.className==='app') return;
+  var why=(window.__fctErr||[]).slice(0,4).join('<br>') || (!window.FCT? 'The FCT scripts did not run.' : !window.FIN? 'The tower data or engines did not load.' : !window.React? 'The UI libraries did not load.' : 'Not signed in on this origin.');
+  a.innerHTML='<div style="padding:24px;font:14px/1.5 system-ui;max-width:720px"><b>This screen could not start.</b><br>'+why+'<br><br>Run <code>node server.js</code> in the project folder and open <a href="http://localhost:8765/screens/login.html">http://localhost:8765</a>.</div>'; }, 8000);
+</script>
+</body>
+</html>
