@@ -43,7 +43,7 @@ const browser = await chromium.launch();
 /* sign in once outside the recording, so the video opens straight on beat 1 */
 const pre = await browser.newContext({ viewport:{ width:VW, height:VH } });
 const p0 = await pre.newPage(); await p0.goto(BASE+'screens/login.html');
-await p0.evaluate(()=>{ FCT.login('admin','FCT@towers#2026'); FCT.state.persona='controller'; FCT.save(); });
+await p0.evaluate(()=>{ FCT.login('admin','kpmg@7'); FCT.state.persona='controller'; FCT.save(); });
 for(const u of story.warm||[]){ await p0.goto(BASE+u); await p0.waitForTimeout(1500); }
 const state = await pre.storageState(); await pre.close();
 

@@ -6,7 +6,7 @@ Read this first when resuming. It is the single source of truth for what exists,
 - **One data universe** for all 5 towers: the manifests in `fct details/` (`FCT_Financial_Controller_Technical_Manifest.md` = cross-tower, `5_Supply_Chain.md` = SC). Persona **Priya Raman**, Group Financial Controller; client Jubilant (demo); period **Sep-26 (Q2 FY27)**; demo clock **Mon 05-Oct-2026 09:10 IST**, close day WD+2, target WD+4; 10 entities IN-01…IN-08, US-01, EU-01. The R2R/O2C/P2P/CMP drill-down docs define *screens, features, KPIs, scenarios*; their example numbers are re-expressed in this universe (e.g. R2R doc "JV-55102 ₹3.9 Cr" → manifest RTR-JNL-02 ₹2.40 Cr; "Meera Rao" → Priya Raman).
 - **Structure:** Login → Persona select → Controller Home (cross-tower desk, queue, decision log) + 5 tower modules with every screen from each tower doc. Shared decision drawer everywhere.
 - **Hosting:** Railway **config only** (`railway.json`, `server.js`, `package.json`); the user deploys. Do not run `railway up`.
-- **Login:** `admin` / `FCT@towers#2026` (baked into `assets/js/fct-core.js`, `FCT.AUTH`).
+- **Login:** `admin` / `kpmg@7` (baked into `assets/js/fct-core.js`, `FCT.AUTH`).
 
 ## Tech rules
 - Static HTML/CSS/vanilla JS, classic `<script>` tags, no build, no backend, works from `file://` and from `server.js`.

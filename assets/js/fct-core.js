@@ -3,7 +3,7 @@
   const D = window.FCT_DATA;
   const FCT = window.FCT = window.FCT || {};
   const KEY = 'fct-demo-v1';
-  FCT.AUTH = { email:'admin', password:'FCT@towers#2026' };
+  FCT.AUTH = { email:'admin', password:'kpmg@7' };
 
   /* ---------- formatting ---------- */
   const nf = (d)=> new Intl.NumberFormat('en-IN',{minimumFractionDigits:d,maximumFractionDigits:d});
